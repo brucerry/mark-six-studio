@@ -1,0 +1,6 @@
+deps/
+build/
+release/
+*.log
+.DS_Store
+Thumbs.db

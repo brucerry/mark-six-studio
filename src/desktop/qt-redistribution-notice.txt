@@ -1,0 +1,22 @@
+mark-six-studio - Qt redistribution notice
+
+This application uses Qt 6.10.2 shared libraries and QML modules. Qt is not
+part of the application's own source. The included Qt runtime components are
+distributed as replaceable DLLs/plugins. Qt is available under the LGPL-3.0
+or other applicable Qt license terms; see licenses/LGPL-3.0-only.txt and
+licenses/GPL-3.0-only.txt in this folder. The official Qt licensing page is
+https://doc.qt.io/qt-6/licensing.html . The Qt 6.10.2 source is available from
+https://code.qt.io/cgit/qt/qtbase.git/tag/?h=v6.10.2 and
+https://code.qt.io/cgit/qt/qtdeclarative.git/tag/?h=v6.10.2 .
+
+The user may replace compatible Qt shared libraries and plugins. Do not use
+this application or its package terms to restrict reverse engineering for
+debugging modifications to LGPL-covered Qt components. The QML/UI code for
+this application is in the mark-six-studio project. Qt-supplied third-party
+component details are recorded in the included CycloneDX SBOM files. The
+SQLite notice covers the embedded public-domain SQLite amalgamation.
+
+This is a technical notice, not a legal-compliance determination. Confirm
+every applicable distribution obligation before public release. The Microsoft
+Visual C++ runtime is not copied by this package; install the official
+Microsoft Visual C++ Redistributable on a target Windows system if needed.

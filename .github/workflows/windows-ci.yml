@@ -1,0 +1,41 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch pinned statistics-only dependencies
+        shell: pwsh
+        run: |
+          ./scripts/fetch-sqlite.ps1 -Fetch
+          ./scripts/fetch-msvc.ps1
+          ./scripts/fetch-statistics-qt.ps1 -Fetch
+      - name: Build and test statistics desktop
+        shell: pwsh
+        run: ./scripts/build-statistics-desktop.ps1 -Tests
+      - name: Package and verify Qt deployment
+        shell: pwsh
+        run: |
+          ./scripts/package-statistics-desktop.ps1
+          ./scripts/test-statistics-package-verifier.ps1 -PackageDirectory ./release/mark-six-studio
+
+      - name: Upload verified Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mark-six-studio-windows-x64-${{ github.sha }}
+          path: release/mark-six-studio/
+          if-no-files-found: error
+          retention-days: 14
