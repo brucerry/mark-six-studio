@@ -1,6 +1,7 @@
 # Mark Six Studio
 
 [![Windows build](https://github.com/brucerry/mark-six-studio/actions/workflows/windows-ci.yml/badge.svg)](https://github.com/brucerry/mark-six-studio/actions/workflows/windows-ci.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Windows desktop application for historical draw analysis and experimental forecasts.
 
