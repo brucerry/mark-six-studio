@@ -27,7 +27,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $inno 'ISCC.exe') -PathType Leaf)) {
     $process = Start-Process -FilePath (Join-Path $cache 'innosetup-7.1.0-x64.exe') -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/DIR=`"$inno`"") -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "Inno Setup installation failed: $($process.ExitCode)" }
 }
-if ((Get-Item -LiteralPath (Join-Path $inno 'ISCC.exe')).VersionInfo.ProductVersion -notmatch '^7\.1\.0') {
-    throw 'Inno Setup compiler version mismatch.'
+$compilerVersion = & (Join-Path $inno 'ISCC.exe') --version
+if ($LASTEXITCODE -ne 0 -or ($compilerVersion -join '').Trim() -cne '7.1.0') {
+    throw "Inno Setup compiler version mismatch: $compilerVersion"
 }
 Write-Output 'Verified Inno Setup 7.1.0 and Microsoft VC runtime prerequisite.'
