@@ -3,7 +3,10 @@
 #include "statistics_loader.hpp"
 #include "desktop_options.hpp"
 #include "desktop_diagnostics.hpp"
+#include "update_controller.hpp"
 
+#include <QDesktopServices>
+#include <QDir>
 #include <QGuiApplication>
 #include <QElapsedTimer>
 #include <QQmlApplicationEngine>
@@ -14,6 +17,7 @@
 #include <QQuickWindow>
 #include <QIcon>
 #include <QQuickStyle>
+#include <QStandardPaths>
 
 #include <cmath>
 
@@ -28,6 +32,7 @@ int runDesktopApp(int argc, char* argv[]) {
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("Mark Six Studio"));
     app.setApplicationDisplayName(QStringLiteral("Mark Six Studio"));
+    app.setApplicationVersion(QStringLiteral(MARKSIX_APP_VERSION));
     app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
     const auto arguments = app.arguments();
     const auto options = parseDesktopOptions(arguments);
@@ -39,9 +44,15 @@ int runDesktopApp(int argc, char* argv[]) {
     const auto requestedComparison = options->requestedComparison;
     StatisticsModels models;
     StatisticsLoader loader(dataRoot, models);
+    marksix::updates::UpdateController updater(app.applicationVersion(),
+        QDir(QStandardPaths::writableLocation(QStandardPaths::CacheLocation)).filePath(QStringLiteral("updates")),
+        [](const QUrl& url) { return QDesktopServices::openUrl(url); });
+    QObject::connect(&updater, &marksix::updates::UpdateController::installerStarted,
+                     &app, &QCoreApplication::quit);
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("statisticsModels"), &models);
     engine.rootContext()->setContextProperty(QStringLiteral("statisticsLoader"), &loader);
+    engine.rootContext()->setContextProperty(QStringLiteral("appUpdater"), &updater);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed,
                      &app, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.loadFromModule("MarkSixStatisticsDesktop", "Main");

@@ -4,7 +4,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version" FORCE)
 endif()
-project(MarkSixStatisticsDesktop VERSION 0.1.0 LANGUAGES C CXX)
+project(MarkSixStatisticsDesktop VERSION 0.1.1 LANGUAGES C CXX)
 if(WIN32)
   enable_language(RC)
 elseif(NOT APPLE)
@@ -13,10 +13,21 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+find_package(Qt6 6.10.2 EXACT REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2)
 qt_standard_project_setup(REQUIRES 6.10)
 enable_testing()
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../statistics" "${CMAKE_BINARY_DIR}/statistics")
+
+add_library(marksix_app_updates STATIC
+  updates/release_info.cpp updates/release_info.hpp
+  updates/update_controller.cpp updates/update_controller.hpp)
+target_include_directories(marksix_app_updates PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/updates")
+target_link_libraries(marksix_app_updates PUBLIC Qt6::Core Qt6::Network)
+if(MSVC)
+  target_compile_options(marksix_app_updates PRIVATE /W4 /permissive- /utf-8)
+else()
+  target_compile_options(marksix_app_updates PRIVATE -Wall -Wextra)
+endif()
 
 set(MARKSIX_MODEL_SOURCES
   models/statistics_models.cpp models/statistics_models.hpp
@@ -26,7 +37,7 @@ set(MARKSIX_QML_FILES
   ui/Main.qml ui/StudioTheme.qml ui/ActionButton.qml ui/DataTable.qml
   ui/SelectableText.qml ui/ProgressChart.qml ui/DashboardPage.qml
   ui/ModelComparisonPage.qml ui/LearningPage.qml ui/DrawHistoryPage.qml
-  ui/DateFilterPicker.qml
+  ui/DateFilterPicker.qml ui/UpdateDialog.qml
   ui/DataSourcesPage.qml)
 
 qt_add_executable(MarkSixStudio WIN32 MACOSX_BUNDLE
@@ -57,7 +68,8 @@ endforeach()
 qt_add_qml_module(MarkSixStudio URI MarkSixStatisticsDesktop VERSION 1.0
   QML_FILES ${MARKSIX_QML_FILES})
 target_include_directories(MarkSixStudio PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/models")
-target_link_libraries(MarkSixStudio PRIVATE marksix_statistics Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2)
+target_link_libraries(MarkSixStudio PRIVATE marksix_statistics marksix_app_updates Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2)
+target_compile_definitions(MarkSixStudio PRIVATE MARKSIX_APP_VERSION="${PROJECT_VERSION}")
 if(MSVC)
   target_compile_options(MarkSixStudio PRIVATE /W4 /permissive- /utf-8)
   target_link_libraries(MarkSixStudio PRIVATE shell32)
@@ -77,3 +89,13 @@ else()
 endif()
 add_test(NAME statistics_qt_model_adapters COMMAND MarkSixStatisticsQtModelTests)
 set_tests_properties(statistics_qt_model_adapters PROPERTIES LABELS "statistics;qt" TIMEOUT 60)
+
+qt_add_executable(MarkSixAppUpdateTests tests/app_updates_tests.cpp)
+target_link_libraries(MarkSixAppUpdateTests PRIVATE marksix_app_updates)
+if(MSVC)
+  target_compile_options(MarkSixAppUpdateTests PRIVATE /W4 /permissive- /utf-8)
+else()
+  target_compile_options(MarkSixAppUpdateTests PRIVATE -Wall -Wextra)
+endif()
+add_test(NAME application_updates COMMAND MarkSixAppUpdateTests)
+set_tests_properties(application_updates PROPERTIES LABELS "updates;qt" TIMEOUT 30)

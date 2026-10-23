@@ -20,7 +20,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check unsigned release publication gates
-        run: python3 -m unittest discover -s scripts -p test_release_artifacts.py
+        run: python3 -m unittest discover -s scripts -p 'test_release_*.py'
       - name: Build universal app and run backend/Qt tests
         run: bash scripts/build-macos.sh
       - name: Create and verify unsigned development installer

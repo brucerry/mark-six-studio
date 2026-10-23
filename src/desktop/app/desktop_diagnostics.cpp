@@ -37,9 +37,28 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
     };
     const bool smoke = arguments.contains(QStringLiteral("--smoke"));
     const bool layoutAudit = arguments.contains(QStringLiteral("--layout-audit"));
-    if (!smoke && !layoutAudit && !arguments.contains(QStringLiteral("--resize-audit")) &&
+    if (!smoke && !layoutAudit && !arguments.contains(QStringLiteral("--app-update-audit")) &&
+        !arguments.contains(QStringLiteral("--resize-audit")) &&
         !arguments.contains(QStringLiteral("--accessibility-audit"))) loader.reload();
     if (smoke) QTimer::singleShot(900, &app, [&] { QCoreApplication::exit(capture() ? 0 : 5); });
+    if (arguments.contains(QStringLiteral("--app-update-audit"))) QTimer::singleShot(250, &app, [&] {
+        auto* dialog = window->findChild<QObject*>(QStringLiteral("appUpdateDialog"));
+        auto* button = window->findChild<QQuickItem*>(QStringLiteral("checkAppUpdatesButton"));
+        bool okay = dialog && button && button->activeFocusOnTab() && QMetaObject::invokeMethod(dialog, "open");
+        for (const auto& size : {QSize(800, 600), QSize(1280, 800)}) {
+            window->resize(size);
+            QCoreApplication::processEvents();
+            auto* status = window->findChild<QQuickItem*>(QStringLiteral("appUpdateStatus"));
+            auto* notes = window->findChild<QQuickItem*>(QStringLiteral("appUpdateNotes"));
+            const bool fits = dialog && dialog->property("visible").toBool() && status && notes &&
+                dialog->property("width").toDouble() <= window->width() - 16 &&
+                dialog->property("height").toDouble() <= window->height() - 16 &&
+                status->height() > 0 && notes->height() > 0;
+            okay = fits && okay;
+        }
+        std::cout << "APP_UPDATE_DIALOG_AUDIT=" << (okay ? "PASS" : "FAIL") << '\n';
+        QCoreApplication::exit(okay && capture() ? 0 : 17);
+    });
     if (arguments.contains(QStringLiteral("--loading-audit"))) {
         QTimer::singleShot(700, &app, [&] {
             auto* cover = window->findChild<QQuickItem*>(QStringLiteral("busyCover"));

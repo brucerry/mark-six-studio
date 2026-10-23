@@ -14,7 +14,15 @@ Forecasts are experimental and do not establish future predictive advantage. Thi
 
 ## Updates
 
-Download the newer installer from the [latest release](https://github.com/brucerry/mark-six-studio/releases/latest) and run it over the existing installation. Local history is retained. In-app updating is tracked in [issue #2](https://github.com/brucerry/mark-six-studio/issues/2).
+Starting with v0.1.1, select **Check for updates** in the sidebar:
+
+1. Read the available version and release notes, then select **Download update**.
+2. Wait for the download and checksum verification. You can cancel and try again later.
+3. Select **Install and close app**, finish the native installation wizard, then reopen Mark Six Studio.
+
+The app checks only when you ask. Installers remain unsigned and normal OS approval may be required. Local history is retained. A failed or cancelled download never starts an installer.
+
+**Still using v0.1.0?** Install the first release containing in-app updates manually from the [latest release](https://github.com/brucerry/mark-six-studio/releases/latest). You can also use this manual route any time.
 
 ## Your data
 

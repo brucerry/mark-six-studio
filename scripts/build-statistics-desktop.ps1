@@ -31,7 +31,7 @@ $sdkBin = Join-Path $sdk "bin/$sdkVersion/x64"
 $resourceCompiler = (Join-Path $sdkBin 'rc.exe').Replace('\', '/')
 $manifestTool = (Join-Path $sdkBin 'mt.exe').Replace('\', '/')
 $saved = @{}
-foreach ($key in 'PATH','INCLUDE','LIB','VCINSTALLDIR','VCToolsInstallDir','VSCMD_VER') {
+foreach ($key in 'PATH','INCLUDE','LIB','VCINSTALLDIR','VCToolsInstallDir','VSCMD_VER','QT_QPA_PLATFORM') {
     $saved[$key] = [Environment]::GetEnvironmentVariable($key,'Process')
 }
 try {
@@ -51,12 +51,17 @@ try {
     & $cmake @options
     if ($LASTEXITCODE) { throw 'Statistics desktop configure failed.' }
     $targets = @('MarkSixStudio')
-    if ($Tests) { $targets += @('MarkSixStatisticsTests','MarkSixStatisticsQtModelTests') }
+    if ($Tests) { $targets += @('MarkSixStatisticsTests','MarkSixStatisticsQtModelTests','MarkSixAppUpdateTests') }
     & $cmake --build $build --target @targets --parallel 4
     if ($LASTEXITCODE) { throw 'Statistics desktop build failed.' }
     if ($Tests) {
-        & $ctest --test-dir $build --output-on-failure -L statistics
+        & $ctest --test-dir $build --output-on-failure -L 'statistics|updates'
         if ($LASTEXITCODE) { throw 'Statistics desktop backend tests failed.' }
+        $env:QT_QPA_PLATFORM = 'offscreen'
+        $auditData = Join-Path $build 'update-audit-data'
+        $audit = Start-Process -FilePath (Join-Path $build 'mark-six-studio.exe') `
+            -ArgumentList @('--app-update-audit','--data-dir',('"{0}"' -f $auditData)) -Wait -PassThru
+        if ($audit.ExitCode) { throw 'Application update dialog audit failed.' }
     }
 } finally {
     foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key,$saved[$key],'Process') }

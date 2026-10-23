@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag matching the application version (for example v0.1.0)
+        description: Existing release tag matching the application version (for example v0.1.1)
         required: true
         type: string
 
@@ -58,7 +58,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG"
-          python3 -m unittest discover -s scripts -p test_release_artifacts.py
+          python3 -m unittest discover -s scripts -p 'test_release_*.py'
       - name: Build and verify unsigned macOS installer
         run: |
           bash scripts/build-macos.sh
@@ -84,6 +84,7 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           pattern: unsigned-*
@@ -96,4 +97,5 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG" --artifacts release-assets
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file installer/release-notes.md
+          python3 scripts/generate-release-notes.py --tag "$RELEASE_TAG" --output release-body.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file release-body.md

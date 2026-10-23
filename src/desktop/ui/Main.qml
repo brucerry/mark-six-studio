@@ -63,6 +63,18 @@ ApplicationWindow {
                 color: StudioTheme.border
             }
             ActionButton {
+                objectName: "checkAppUpdatesButton"
+                width: parent.width
+                text: root.compact ? "U" : "Check for updates"
+                accessibleLabel: "Check for app updates"
+                ToolTip.visible: hovered && root.compact
+                ToolTip.text: "Check for app updates"
+                onClicked: {
+                    appUpdateDialog.open()
+                    if (!appUpdater.busy) appUpdater.checkForUpdates()
+                }
+            }
+            ActionButton {
                 id: licenseButton
                 objectName: "licenseButton"
                 width: parent.width
@@ -73,6 +85,14 @@ ApplicationWindow {
                 onClicked: licenseDialog.open()
             }
         }
+    }
+    UpdateDialog {
+        id: appUpdateDialog
+        updater: appUpdater
+        installationBlocked: root.taskBlocking
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 32, 660)
+        height: Math.min(root.height - 32, 580)
     }
 
     Flickable {

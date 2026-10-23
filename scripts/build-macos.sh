@@ -15,3 +15,5 @@ python3 "$repo/scripts/fetch-macos-deps.py"
 "$(dirname "$(command -v "$cmake")")/ctest" --test-dir "$build" --output-on-failure
 QT_QPA_PLATFORM=offscreen "$build/mark-six-studio.app/Contents/MacOS/mark-six-studio" \
   --smoke --data-dir "$build/smoke-data"
+QT_QPA_PLATFORM=offscreen "$build/mark-six-studio.app/Contents/MacOS/mark-six-studio" \
+  --app-update-audit --data-dir "$build/update-audit-data"

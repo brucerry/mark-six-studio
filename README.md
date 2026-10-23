@@ -16,6 +16,8 @@ Explore historical Mark Six draws, compare experimental models, and follow learn
 
 Installers are **unsigned**, so your OS may ask for approval. See the [installation guide](installer/README.md) for help and checksums. Forecasts are experimental and do not establish a future predictive advantage.
 
+From v0.1.1, use **Check for updates** in the app to download a newer installer.
+
 ## 🛠️ Build locally
 
 Clone this repository first. The app uses C++20, Qt and SQLite; scripts fetch the pinned dependencies.
