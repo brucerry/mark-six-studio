@@ -1,13 +1,18 @@
-Mark Six Studio provides local draw analysis and experimental forecasts. Source code is available under GPLv3.
+## 📦 Version description
 
-Download the **Windows x64 setup EXE** for Windows 10 (1809+) / 11, or the **macOS universal PKG** for macOS 13+ on Apple Silicon or Intel. These are **unsigned releases**: they have no verified publisher certificate, and the macOS package is not notarized. Signing accounts and paid certificates are not required by this project.
+The first Windows and macOS installer release of Mark Six Studio: local draw analysis, model comparisons, and experimental forecasts.
 
-Windows may show an unknown-publisher or SmartScreen prompt. macOS may require approval in System Settings > Privacy & Security after opening a trusted downloaded package or app. Organization policies and Smart App Control can block unsigned applications. See [Apple's instructions](https://support.apple.com/102445) and [Microsoft's explanation](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation).
+## ✨ Changes
 
-Each installer has a SHA-256 checksum asset. Download from this repository's GitHub Releases and compare that checksum before installation. The macOS manifest lists its packaged files. Checksums detect mismatched downloads; they do not authenticate a publisher.
+- Offline Windows x64 setup and universal macOS installation wizard.
+- Local history retained through upgrades and removal; cached analysis works offline.
+- Both platforms pass automated build, package and installer checks; macOS installation also verified on Apple Silicon.
+- **Unsigned installers** with SHA-256 checksums. OS approval may be required; see the [installation guide and verification limits](https://github.com/brucerry/mark-six-studio/blob/main/installer/README.md).
 
-Installers preserve local user databases during application upgrades and removal. Cached analysis works offline; history downloads start only when Update history is selected. Forecasts are experimental and do not establish future predictive advantage.
+## 🧾 Commits
 
-Automated checks cover builds, backend/Qt tests, package verification, installation, reinstall, removal and retained data hashes on Windows Server 2022 and macOS 15 CI. The native PKG wizard and installed application were also verified on an Apple Silicon Mac running macOS 27.0.1. Separate minimum-OS, native Intel hardware, display-scaling and manual screen-reader acceptance remain unverified.
-
-To update, download the latest release installer and install it over the existing application. In-app updating is planned for a future release.
+- [c346677](https://github.com/brucerry/mark-six-studio/commit/c346677) — Add macOS support and offline installers.
+- [0eb5103](https://github.com/brucerry/mark-six-studio/commit/0eb5103) — Fix the macOS application install location.
+- [56ba685](https://github.com/brucerry/mark-six-studio/commit/56ba685) — Retain newer compatible Windows runtimes.
+- [1fa49da](https://github.com/brucerry/mark-six-studio/commit/1fa49da) — Publish verified unsigned GitHub releases.
+- [Full commit history](https://github.com/brucerry/mark-six-studio/commits/v0.1.0/).

@@ -96,4 +96,4 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG" --artifacts release-assets
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "Mark Six Studio $RELEASE_TAG" --notes-file installer/release-notes.md
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "$RELEASE_TAG" --notes-file installer/release-notes.md
