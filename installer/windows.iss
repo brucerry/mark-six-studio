@@ -66,7 +66,8 @@ begin
   ExtractTemporaryFile('VC_redist.x64.exe');
   if not Exec(ExpandConstant('{tmp}\VC_redist.x64.exe'), '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
     Result := 'Unable to start the Microsoft Visual C++ runtime installer.';
-  if (Result = '') and (ExitCode <> 0) and (ExitCode <> 1638) and (ExitCode <> 3010) then
+  { 0x80070666 is HRESULT_FROM_WIN32(ERROR_PRODUCT_VERSION): a newer compatible v14 runtime is installed. }
+  if (Result = '') and (ExitCode <> 0) and (ExitCode <> 1638) and (ExitCode <> -2147023258) and (ExitCode <> 3010) then
     Result := 'Microsoft Visual C++ runtime installation failed. Code: ' + IntToStr(ExitCode);
   if ExitCode = 3010 then NeedsRestart := True;
 end;
