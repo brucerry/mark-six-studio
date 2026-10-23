@@ -133,7 +133,11 @@ void matches(const StatisticsTableModel& model, const Presentation& source, size
 int main(int argc, char** argv) {
     QCoreApplication application(argc, argv);
     try {
+#ifdef _WIN32
         check(defaultStatisticsDataRoot().filename() == L"MarkSixEmulator");
+#else
+        check(defaultStatisticsDataRoot().filename() == "MarkSixStudio");
+#endif
         const auto snapshot = std::make_shared<const Snapshot>(std::vector<Result>{fixture(1), fixture(2), fixture(3)});
         ViewData data;
         data.snapshot = snapshot;
@@ -263,7 +267,7 @@ int main(int argc, char** argv) {
         stage = "committed update then model failure";
         QTemporaryDir temporary;
         check(temporary.isValid());
-        const auto root = std::filesystem::path(temporary.path().toStdWString());
+        const auto root = std::filesystem::path(temporary.path().toStdU16String());
         StatisticsLoader update(root, std::make_shared<FixtureProvider>(),
             StatisticsLoader::Job([](std::stop_token) {
                 auto out = prepared("invalid after commit");
@@ -287,7 +291,7 @@ int main(int argc, char** argv) {
         for (auto failure : {UpdateFailure::Connection, UpdateFailure::Tls, UpdateFailure::Schema}) {
             QTemporaryDir failedDirectory;
             check(failedDirectory.isValid());
-            const auto failedRoot = std::filesystem::path(failedDirectory.path().toStdWString());
+            const auto failedRoot = std::filesystem::path(failedDirectory.path().toStdU16String());
             StatisticsLoader failedUpdate(failedRoot, std::make_shared<FailingProvider>(failure),
                 StatisticsLoader::Job([](std::stop_token) { return prepared("unused"); }), models);
             check(failedUpdate.startUpdate());
@@ -315,7 +319,7 @@ int main(int argc, char** argv) {
 
         QTemporaryDir closeDirectory;
         check(closeDirectory.isValid());
-        const auto closeRoot = std::filesystem::path(closeDirectory.path().toStdWString());
+        const auto closeRoot = std::filesystem::path(closeDirectory.path().toStdU16String());
         auto blockingProvider = std::make_shared<BlockingProvider>();
         StatisticsLoader closing(closeRoot, blockingProvider,
             StatisticsLoader::Job([](std::stop_token) { return prepared("never loaded"); }), models);
@@ -329,7 +333,7 @@ int main(int argc, char** argv) {
         stage = "dashboard empty and warm-up";
         QTemporaryDir emptyDirectory;
         check(emptyDirectory.isValid());
-        StatisticsLoader empty(std::filesystem::path(emptyDirectory.path().toStdWString()), models);
+        StatisticsLoader empty(std::filesystem::path(emptyDirectory.path().toStdU16String()), models);
         empty.reload();
         until([&] { return !empty.busy(); });
         check(empty.error().isEmpty() && !empty.selectionAvailable());
@@ -338,7 +342,7 @@ int main(int argc, char** argv) {
 
         QTemporaryDir warmDirectory;
         check(warmDirectory.isValid());
-        const auto warmRoot = std::filesystem::path(warmDirectory.path().toStdWString());
+        const auto warmRoot = std::filesystem::path(warmDirectory.path().toStdU16String());
         { Archive warmArchive(warmRoot); warmArchive.ingest({seedFixture(), fixture(1)}); }
         StatisticsLoader warm(warmRoot, models);
         warm.reload();
@@ -382,7 +386,7 @@ int main(int argc, char** argv) {
         stage = "opt-in fair controls";
         QTemporaryDir controlDirectory;
         check(controlDirectory.isValid());
-        StatisticsLoader controls(std::filesystem::path(controlDirectory.path().toStdWString()),
+        StatisticsLoader controls(std::filesystem::path(controlDirectory.path().toStdU16String()),
             std::shared_ptr<UpdateProvider>{}, StatisticsLoader::Job([](std::stop_token) {
                 auto out = prepared("controls fixture");
                 out.controlEligible = true;
@@ -403,7 +407,7 @@ int main(int argc, char** argv) {
         stage = "source import preview/accept and stale resolve";
         QTemporaryDir sourceDirectory;
         check(sourceDirectory.isValid());
-        const auto sourceRoot = std::filesystem::path(sourceDirectory.path().toStdWString());
+        const auto sourceRoot = std::filesystem::path(sourceDirectory.path().toStdU16String());
         const auto csvPath = sourceRoot / "synthetic.csv";
         const auto manifestPath = sourceRoot / "synthetic.json";
         const std::string csv = "draw_id,date,n1,n2,n3,n4,n5,n6,extra,era,provider_id,source_window\r\n"
@@ -417,8 +421,8 @@ int main(int argc, char** argv) {
                 "\"status\":\"unverified\",\"extractionOrder\":\"unknown\"}";
         }
         StatisticsLoader sources(sourceRoot, models);
-        const auto csvUrl = QUrl::fromLocalFile(QString::fromStdWString(csvPath.wstring()));
-        const auto manifestUrl = QUrl::fromLocalFile(QString::fromStdWString(manifestPath.wstring()));
+        const auto csvUrl = QUrl::fromLocalFile(QString::fromStdU16String(csvPath.u16string()));
+        const auto manifestUrl = QUrl::fromLocalFile(QString::fromStdU16String(manifestPath.u16string()));
         check(sources.previewCsv(csvUrl, manifestUrl));
         until([&] { return sources.importPreviewReady(); });
         check(sources.sourceWorkStatus().contains(QStringLiteral("Preview 1 rows")));

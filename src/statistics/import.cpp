@@ -1,5 +1,5 @@
 #include "import.hpp"
-#include <Windows.h>
+#include "platform.hpp"
 #include <sqlite3.h>
 #include <algorithm>
 #include <charconv>
@@ -12,7 +12,7 @@ namespace {
 void ensure(bool ok, const char* message) { if (!ok) throw std::invalid_argument(message); }
 void utf8(std::string_view bytes) {
     ensure(bytes.size() <= MaxImportBytes && bytes.find('\0') == std::string_view::npos, "Oversized input or NUL byte");
-    ensure(bytes.empty() || MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(), int(bytes.size()), nullptr, 0) > 0, "Input is not valid UTF-8");
+    ensure(platform::validUtf8(bytes), "Input is not valid UTF-8");
 }
 int integer(const std::string& s) {
     int value = 0; const auto parsed = std::from_chars(s.data(), s.data() + s.size(), value);

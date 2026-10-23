@@ -1383,3 +1383,4 @@ sbom/qtbase-6.10.2.cdx.json
 sbom/qtdeclarative-6.10.2.cdx.json
 tls/qcertonlybackend.dll
 tls/qschannelbackend.dll
+licenses/GPL-3.0.txt

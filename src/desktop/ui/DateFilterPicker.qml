@@ -110,7 +110,7 @@ Item {
                     text: "‹"
                     width: 44
                     accessibleLabel: "Previous month"
-                    enabled: calendar.monthKey(calendar.viewYear, calendar.viewMonth) >
+                    enabled: picker.monthKey(calendar.viewYear, calendar.viewMonth) >
                         calendar.earliestMonth
 
                     onClicked: {
@@ -136,7 +136,7 @@ Item {
                     text: "›"
                     width: 44
                     accessibleLabel: "Next month"
-                    enabled: calendar.monthKey(calendar.viewYear, calendar.viewMonth) <
+                    enabled: picker.monthKey(calendar.viewYear, calendar.viewMonth) <
                         calendar.latestMonth
 
                     onClicked: {
@@ -178,7 +178,7 @@ Item {
 
                     onActivated: {
                         calendar.viewYear = Number(currentText)
-                        const current = calendar.monthKey(calendar.viewYear,
+                        const current = picker.monthKey(calendar.viewYear,
                                                           calendar.viewMonth)
                         if (current < calendar.earliestMonth) {
                             calendar.viewMonth = picker.parseIso(picker.minimumDate).getMonth()

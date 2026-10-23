@@ -15,6 +15,7 @@ std::string hkjcAssetPath(std::string_view page);
 std::string hkjcQuery(std::string_view script);
 std::vector<Result> parseHkjcResults(std::string_view bytes, const DateRange& range,
                                      std::string_view retrievedUtc, std::stop_token stop = {});
+void validateHkjcRequest(const HkjcRequest& request);
 void checkHkjcHttpStatus(unsigned status);
 std::string hkjcHttps(const HkjcRequest& request, std::stop_token stop);
 }

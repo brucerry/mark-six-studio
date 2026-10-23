@@ -1,0 +1,99 @@
+name: Release unsigned installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag matching the application version (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Validate release tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python scripts/verify-release-artifacts.py --tag $env:RELEASE_TAG
+      - name: Build, test and package unsigned Windows installer
+        shell: pwsh
+        run: |
+          ./scripts/fetch-sqlite.ps1 -Fetch
+          ./scripts/fetch-msvc.ps1
+          ./scripts/fetch-statistics-qt.ps1 -Fetch
+          ./scripts/build-statistics-desktop.ps1 -Tests
+          ./scripts/package-statistics-desktop.ps1
+          ./scripts/test-statistics-package-verifier.ps1 -PackageDirectory ./release/mark-six-studio
+          ./scripts/build-windows-installer.ps1 -PackageDirectory ./release/mark-six-studio
+          $installer = Get-ChildItem ./release/windows-installer/*-unsigned-setup.exe
+          ./scripts/test-windows-installer.ps1 -Installer $installer.FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-windows
+          path: release/windows-installer/*
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - name: Validate release tag and publication gates
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG"
+          python3 -m unittest discover -s scripts -p test_release_artifacts.py
+      - name: Build and verify unsigned macOS installer
+        run: |
+          bash scripts/build-macos.sh
+          python3 scripts/package-macos.py
+          python3 scripts/test-macos-package-verifier.py 'release/macos/Mark Six Studio.app'
+          python3 scripts/test-macos-installer.py release/macos/*-unsigned.pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-macos
+          path: |
+            release/macos/*.pkg
+            release/macos/*.json
+            release/macos/*.sha256
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify and publish unsigned installers with disclosure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG" --artifacts release-assets
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "Mark Six Studio $RELEASE_TAG" --notes-file installer/release-notes.md

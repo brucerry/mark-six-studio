@@ -14,5 +14,5 @@ QtObject {
     readonly property color gold: "#f5c978"
     readonly property color error: "#ff9f9f"
     readonly property int radius: 14
-    readonly property string fontFamily: "Segoe UI"
+    readonly property string fontFamily: Qt.platform.os === "osx" ? Qt.application.font.family : "Segoe UI"
 }

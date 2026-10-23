@@ -1,0 +1,39 @@
+name: macOS build
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check unsigned release publication gates
+        run: python3 -m unittest discover -s scripts -p test_release_artifacts.py
+      - name: Build universal app and run backend/Qt tests
+        run: bash scripts/build-macos.sh
+      - name: Create and verify unsigned development installer
+        run: python3 scripts/package-macos.py
+      - name: Verify package failure cases
+        run: python3 scripts/test-macos-package-verifier.py 'release/macos/Mark Six Studio.app'
+      - name: Exercise installation and retained data on disposable runner
+        run: python3 scripts/test-macos-installer.py release/macos/*-unsigned.pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mark-six-studio-macos-universal-unsigned-${{ github.sha }}
+          path: |
+            release/macos/*.pkg
+            release/macos/*.json
+            release/macos/*.sha256
+          if-no-files-found: error

@@ -1,5 +1,5 @@
 #include "hkjc_provider.hpp"
-#include <Windows.h>
+#include "platform.hpp"
 #include <sqlite3.h>
 #include <algorithm>
 #include <chrono>
@@ -34,7 +34,7 @@ struct Json {
     std::string_view bytes;
     explicit Json(std::string_view b) : bytes(b) {
         require(!b.empty() && b.size() <= 2 * 1024 * 1024 && b.find('\0') == std::string_view::npos);
-        require(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, b.data(), int(b.size()), nullptr, 0) > 0);
+        require(platform::validUtf8(b));
         Statement valid(db.value, "SELECT json_valid(?1)", b);
         require(sqlite3_step(valid.value) == SQLITE_ROW && sqlite3_column_int(valid.value, 0) == 1);
         Statement duplicates(db.value, "SELECT 1 FROM json_tree(?1) WHERE typeof(key)='text' GROUP BY parent,key HAVING count(*)>1 LIMIT 1", b);
@@ -74,8 +74,7 @@ std::string literal(std::string_view script, std::string_view anchor) {
     Json json(script.substr(start, end - start + 1)); return json.get("$", "text");
 }
 std::string utcNow() {
-    SYSTEMTIME t{}; GetSystemTime(&t); char value[32]{};
-    std::snprintf(value, sizeof(value), "%04u-%02u-%02uT%02u:%02u:%02uZ", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond); return value;
+    return platform::utcNow();
 }
 std::string hongKongToday() {
     using namespace std::chrono;

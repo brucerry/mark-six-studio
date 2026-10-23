@@ -1,6 +1,5 @@
 #include "archive.hpp"
-#include <Windows.h>
-#include <bcrypt.h>
+#include "platform.hpp"
 #include <sqlite3.h>
 #include <algorithm>
 #include <chrono>
@@ -46,13 +45,10 @@ std::string utf8(const std::filesystem::path& path) {
 }
 void backup(sqlite3* db, const std::filesystem::path& path) {
     std::array<unsigned char, 16> random{};
-    if (BCryptGenRandom(nullptr, random.data(), ULONG(random.size()), BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
-        throw std::runtime_error("Cannot identify migration backup");
+    platform::randomBytes(random.data(), random.size());
     const std::string id = sha256(std::string_view(reinterpret_cast<const char*>(random.data()), random.size())).substr(0, 24);
     auto destination = path; destination += ".before-v3-" + id + ".sqlite3";
-    const HANDLE reserved = CreateFileW(destination.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (reserved == INVALID_HANDLE_VALUE) throw std::runtime_error("Cannot reserve migration backup");
-    CloseHandle(reserved);
+    platform::reserveFile(destination);
     sqlite3* copy = nullptr; int status = sqlite3_open_v2(utf8(destination).c_str(), &copy, SQLITE_OPEN_READWRITE, nullptr);
     if (status != SQLITE_OK) { if (copy) sqlite3_close(copy); throw std::runtime_error("Cannot open migration backup"); }
     auto* task = sqlite3_backup_init(copy, "main", db, "main");

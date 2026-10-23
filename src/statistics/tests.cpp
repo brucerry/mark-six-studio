@@ -341,15 +341,20 @@ void resampling() {
 }
 }
 size_t testLearningProgress();
+size_t testPlatform();
+#ifdef _WIN32
 int wmain(int argc, wchar_t** argv) {
+#else
+int main(int argc, char** argv) {
+#endif
     try {
-        if (argc == 3 && std::wstring_view(argv[1]) == L"--hkjc-saved-check") { verifySavedHkjc(argv[2], {}); return 0; }
-        if (argc == 4 && std::wstring_view(argv[1]) == L"--hkjc-cache-check") { verifySavedHkjc(argv[2], argv[3]); return 0; }
-        if (argc == 3 && std::wstring_view(argv[1]) == L"--official-report") { officialReport(argv[2]); return 0; }
-        if (argc == 3 && std::wstring_view(argv[1]) == L"--forecast-lab-report") { forecastLabOfficialReport(argv[2]); return 0; }
-        if (argc == 4 && std::wstring_view(argv[1]) == L"--adaptive-report") { adaptiveOfficialReport(argv[2],argv[3]); return 0; }
-        if (argc == 4 && std::wstring_view(argv[1]) == L"--adaptive-benchmark") { adaptiveOfficialBenchmark(argv[2],argv[3]); return 0; }
-        if (argc == 4 && std::wstring_view(argv[1]) == L"--official-archive-check") { officialArchiveCheck(argv[2], argv[3]); return 0; }
+        if (argc == 3 && std::filesystem::path(argv[1]) == "--hkjc-saved-check") { verifySavedHkjc(argv[2], {}); return 0; }
+        if (argc == 4 && std::filesystem::path(argv[1]) == "--hkjc-cache-check") { verifySavedHkjc(argv[2], argv[3]); return 0; }
+        if (argc == 3 && std::filesystem::path(argv[1]) == "--official-report") { officialReport(argv[2]); return 0; }
+        if (argc == 3 && std::filesystem::path(argv[1]) == "--forecast-lab-report") { forecastLabOfficialReport(argv[2]); return 0; }
+        if (argc == 4 && std::filesystem::path(argv[1]) == "--adaptive-report") { adaptiveOfficialReport(argv[2],argv[3]); return 0; }
+        if (argc == 4 && std::filesystem::path(argv[1]) == "--adaptive-benchmark") { adaptiveOfficialBenchmark(argv[2],argv[3]); return 0; }
+        if (argc == 4 && std::filesystem::path(argv[1]) == "--official-archive-check") { officialArchiveCheck(argv[2], argv[3]); return 0; }
         if (argc != 1) throw std::invalid_argument("Usage: MarkSixStatisticsTests [--official-report AUDITED_SNAPSHOT_DIRECTORY | --official-archive-check AUDITED_SNAPSHOT_DIRECTORY NEW_ISOLATED_ROOT | --adaptive-report AUDITED_SNAPSHOT_DIRECTORY NEW_REPORT_FILE | --adaptive-benchmark AUDITED_SNAPSHOT_DIRECTORY NEW_ISOLATED_ROOT]");
         for (const auto& [name, test] : std::vector<std::pair<const char*, std::function<void()>>>{
                  {"domain/provenance/digests", domain}, {"exact probabilities", exactMath}, {"Wilson intervals", uncertainty},
@@ -358,6 +363,7 @@ int wmain(int argc, wchar_t** argv) {
                  {"table/chart/forecast presentation", presentationTests}, {"worker supersession/cancellation/lifetime", workerTests}}) {
             test(); std::cout << "PASS " << name << '\n';
         }
+        checks += testPlatform();
         checks += testAdaptive();
         checks += testForecastLab();
         checks += testAdaptiveLedger();

@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.25)
 cmake_policy(SET CMP0091 NEW)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
-project(MarkSixStatisticsDesktop VERSION 0.1.0 LANGUAGES C CXX RC)
-if(NOT WIN32)
-  message(FATAL_ERROR "The desktop transition currently targets Windows x64")
+if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS version" FORCE)
+endif()
+project(MarkSixStatisticsDesktop VERSION 0.1.0 LANGUAGES C CXX)
+if(WIN32)
+  enable_language(RC)
+elseif(NOT APPLE)
+  message(FATAL_ERROR "Supported desktop targets are Windows and macOS")
 endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,15 +29,24 @@ set(MARKSIX_QML_FILES
   ui/DateFilterPicker.qml
   ui/DataSourcesPage.qml)
 
-qt_add_executable(MarkSixStudio WIN32
+qt_add_executable(MarkSixStudio WIN32 MACOSX_BUNDLE
   app/main.cpp app/desktop_app.cpp app/desktop_app.hpp
   app/desktop_options.cpp app/desktop_options.hpp
   app/desktop_diagnostics.cpp app/desktop_diagnostics.hpp
   ${MARKSIX_MODEL_SOURCES})
 set_target_properties(MarkSixStudio PROPERTIES OUTPUT_NAME "mark-six-studio")
-set(MARKSIX_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/icon.ico")
-configure_file(app-icon.rc.in "${CMAKE_BINARY_DIR}/app-icon.rc" @ONLY)
-target_sources(MarkSixStudio PRIVATE "${CMAKE_BINARY_DIR}/app-icon.rc")
+if(WIN32)
+  set(MARKSIX_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/icon.ico")
+  configure_file(app-icon.rc.in "${CMAKE_BINARY_DIR}/app-icon.rc" @ONLY)
+  target_sources(MarkSixStudio PRIVATE "${CMAKE_BINARY_DIR}/app-icon.rc")
+elseif(APPLE)
+  set_target_properties(MarkSixStudio PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "Mark Six Studio"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.brucerry.marksixstudio"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in")
+endif()
 set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/../../assets/icon.png" PROPERTIES QT_RESOURCE_ALIAS "icon.png")
 qt_add_resources(MarkSixStudio "brand" PREFIX "/" FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../assets/icon.png")
 set_source_files_properties(ui/StudioTheme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
@@ -43,13 +57,23 @@ endforeach()
 qt_add_qml_module(MarkSixStudio URI MarkSixStatisticsDesktop VERSION 1.0
   QML_FILES ${MARKSIX_QML_FILES})
 target_include_directories(MarkSixStudio PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/models")
-target_link_libraries(MarkSixStudio PRIVATE marksix_statistics Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 shell32)
-target_compile_options(MarkSixStudio PRIVATE /W4 /permissive- /utf-8)
+target_link_libraries(MarkSixStudio PRIVATE marksix_statistics Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2)
+if(MSVC)
+  target_compile_options(MarkSixStudio PRIVATE /W4 /permissive- /utf-8)
+  target_link_libraries(MarkSixStudio PRIVATE shell32)
+else()
+  target_compile_options(MarkSixStudio PRIVATE -Wall -Wextra)
+endif()
 
 qt_add_executable(MarkSixStatisticsQtModelTests
   tests/statistics_models_tests.cpp ${MARKSIX_MODEL_SOURCES})
 target_include_directories(MarkSixStatisticsQtModelTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/models")
-target_link_libraries(MarkSixStatisticsQtModelTests PRIVATE marksix_statistics Qt6::Core shell32)
-target_compile_options(MarkSixStatisticsQtModelTests PRIVATE /W4 /permissive- /utf-8)
+target_link_libraries(MarkSixStatisticsQtModelTests PRIVATE marksix_statistics Qt6::Core)
+if(MSVC)
+  target_compile_options(MarkSixStatisticsQtModelTests PRIVATE /W4 /permissive- /utf-8)
+  target_link_libraries(MarkSixStatisticsQtModelTests PRIVATE shell32)
+else()
+  target_compile_options(MarkSixStatisticsQtModelTests PRIVATE -Wall -Wextra)
+endif()
 add_test(NAME statistics_qt_model_adapters COMMAND MarkSixStatisticsQtModelTests)
 set_tests_properties(statistics_qt_model_adapters PROPERTIES LABELS "statistics;qt" TIMEOUT 60)

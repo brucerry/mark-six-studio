@@ -1,6 +1,10 @@
 #include "domain.hpp"
+#ifdef _WIN32
 #include <Windows.h>
 #include <bcrypt.h>
+#else
+#include <CommonCrypto/CommonDigest.h>
+#endif
 #include <algorithm>
 #include <chrono>
 #include <limits>
@@ -54,11 +58,15 @@ bool validDate(std::string_view s) {
                                                     day{unsigned(decimal(s.substr(8, 2)))}}.ok();
 }
 std::string sha256(std::string_view bytes) {
-    require(bytes.size() <= std::numeric_limits<ULONG>::max(), "Digest input too large");
+    require(bytes.size() <= std::numeric_limits<uint32_t>::max(), "Digest input too large");
     std::array<unsigned char, 32> hash{};
+#ifdef _WIN32
     if (BCryptHash(BCRYPT_SHA256_ALG_HANDLE, nullptr, 0,
                    reinterpret_cast<PUCHAR>(const_cast<char*>(bytes.data())), ULONG(bytes.size()),
                    hash.data(), ULONG(hash.size())) != 0) throw std::runtime_error("SHA-256 failed");
+#else
+    if (!CC_SHA256(bytes.data(), CC_LONG(bytes.size()), hash.data())) throw std::runtime_error("SHA-256 failed");
+#endif
     constexpr char hex[] = "0123456789abcdef";
     std::string out; out.reserve(64);
     for (unsigned char b : hash) { out += hex[b >> 4]; out += hex[b & 15]; }

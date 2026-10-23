@@ -92,7 +92,7 @@ size_t testHkjcProvider() {
     const auto root = std::filesystem::temp_directory_path() / ("marksix-hkjc-fixture-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     const auto first = executeUpdate(root, provider.get());
     check(first.stage == UpdateStage::Succeeded && first.committed->comparison.added == 1, "HKJC provider fixture initial atomic backfill");
-    Archive archive(root); const auto receipts = archive.committedWindows().size(), version = archive.version();
+    Archive archive(root); const auto receipts = archive.committedWindows().size(); const auto version = archive.version();
     check(receipts > 100 && archive.snapshot().records().size() == 1, "Initial backfill covers reviewed range including validated empty windows");
     bodies.clear(); const auto second = executeUpdate(root, provider.get());
     check(second.stage == UpdateStage::Succeeded && second.committed->comparison.added == 0 && second.committed->comparison.unchanged == 1, "HKJC repeated update is idempotent");
