@@ -6,4 +6,4 @@ The app starts from local storage and downloads history only when Update history
 
 To remove the application, move `/Applications/Mark Six Studio.app` to Trash. Keep the Application Support directory to retain history for a later reinstall. Native PKG installation does not provide a separate uninstall wizard.
 
-Files named `-unsigned.pkg` are development artifacts, not signed/notarized public releases. See the included licenses and SBOMs. Forecasts remain experimental and do not establish future predictive advantage.
+This project publishes `-unsigned.pkg` installers on GitHub with SHA-256 checksums. They are not Developer ID signed or notarized and require no developer membership. macOS may require approval in System Settings > Privacy & Security > Open Anyway after opening a trusted download; device policies can block unsigned apps. See the included licenses and SBOMs. Forecasts remain experimental and do not establish future predictive advantage.

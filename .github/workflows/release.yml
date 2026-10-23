@@ -1,4 +1,4 @@
-name: Signed installers
+name: Release unsigned installers
 
 on:
   workflow_dispatch:
@@ -20,45 +20,28 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
-      - name: Validate release tag and credentials
+      - name: Validate release tag
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
-          WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
-        run: |
-          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw 'Release requires a version tag.' }
-          $version = [regex]::Match((Get-Content src/desktop/CMakeLists.txt -Raw), 'project\(MarkSixStatisticsDesktop VERSION ([0-9.]+)').Groups[1].Value
-          if ($env:RELEASE_TAG -cne "v$version") { throw 'Tag does not match application version.' }
-          if (-not $env:WINDOWS_PFX_BASE64 -or -not $env:WINDOWS_PFX_PASSWORD) { throw 'Windows signing credentials are missing.' }
-          $pfx = Join-Path $env:RUNNER_TEMP 'marksix-signing.pfx'
-          try {
-            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
-            $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString $env:WINDOWS_PFX_PASSWORD -AsPlainText -Force)
-            "WINDOWS_SIGN_CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
-          } finally { Remove-Item -LiteralPath $pfx -Force -ErrorAction SilentlyContinue }
-      - name: Build and test
+        run: python scripts/verify-release-artifacts.py --tag $env:RELEASE_TAG
+      - name: Build, test and package unsigned Windows installer
         shell: pwsh
         run: |
           ./scripts/fetch-sqlite.ps1 -Fetch
           ./scripts/fetch-msvc.ps1
           ./scripts/fetch-statistics-qt.ps1 -Fetch
           ./scripts/build-statistics-desktop.ps1 -Tests
-          ./scripts/package-statistics-desktop.ps1 -Signed
+          ./scripts/package-statistics-desktop.ps1
           ./scripts/test-statistics-package-verifier.ps1 -PackageDirectory ./release/mark-six-studio
-          ./scripts/build-windows-installer.ps1 -PackageDirectory ./release/mark-six-studio -Signed
-          $installer = Get-ChildItem ./release/windows-installer/*-setup.exe
+          ./scripts/build-windows-installer.ps1 -PackageDirectory ./release/mark-six-studio
+          $installer = Get-ChildItem ./release/windows-installer/*-unsigned-setup.exe
           ./scripts/test-windows-installer.ps1 -Installer $installer.FullName
       - uses: actions/upload-artifact@v4
         with:
-          name: signed-windows
+          name: unsigned-windows
           path: release/windows-installer/*
           if-no-files-found: error
-      - name: Remove signing identity
-        if: always()
-        shell: pwsh
-        run: |
-          if ($env:WINDOWS_SIGN_CERT_THUMBPRINT) { Remove-Item "Cert:\CurrentUser\My\$env:WINDOWS_SIGN_CERT_THUMBPRINT" -Force }
 
   macos:
     runs-on: macos-15
@@ -70,38 +53,26 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
-      - name: Validate release tag and import signing identities
+      - name: Validate release tag and publication gates
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          MACOS_CERTIFICATES_BASE64: ${{ secrets.MACOS_CERTIFICATES_BASE64 }}
-          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
-          MACOS_APP_IDENTITY: ${{ secrets.MACOS_APP_IDENTITY }}
-          MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
-        run: python3 scripts/setup-macos-signing.py
-      - name: Build, sign, notarize and verify installer
-        env:
-          MACOS_APP_IDENTITY: ${{ secrets.MACOS_APP_IDENTITY }}
-          MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
-          MACOS_NOTARY_PROFILE: marksix-release
+        run: |
+          python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG"
+          python3 -m unittest discover -s scripts -p test_release_artifacts.py
+      - name: Build and verify unsigned macOS installer
         run: |
           bash scripts/build-macos.sh
-          python3 scripts/package-macos.py --signed
+          python3 scripts/package-macos.py
           python3 scripts/test-macos-package-verifier.py 'release/macos/Mark Six Studio.app'
-          python3 scripts/test-macos-installer.py release/macos/*.pkg
+          python3 scripts/test-macos-installer.py release/macos/*-unsigned.pkg
       - uses: actions/upload-artifact@v4
         with:
-          name: signed-macos
+          name: unsigned-macos
           path: |
             release/macos/*.pkg
             release/macos/*.json
             release/macos/*.sha256
           if-no-files-found: error
-      - name: Remove signing keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/marksix-release.keychain-db" || true
 
   publish:
     needs: [windows, macos]
@@ -109,16 +80,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
-          pattern: signed-*
+          pattern: unsigned-*
           path: release-assets
           merge-multiple: true
-      - name: Publish verified signed artifacts
+      - name: Verify and publish unsigned installers with disclosure
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          if find release-assets -name '*unsigned*' | grep -q .; then exit 1; fi
-          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "Mark Six Studio $RELEASE_TAG" --generate-notes
+          python3 scripts/verify-release-artifacts.py --tag "$RELEASE_TAG" --artifacts release-assets
+          gh release create "$RELEASE_TAG" release-assets/* --verify-tag --title "Mark Six Studio $RELEASE_TAG" --notes-file installer/release-notes.md

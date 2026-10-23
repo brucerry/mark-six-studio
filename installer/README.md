@@ -1,43 +1,39 @@
-# Installer builds and release qualification
+# Installer builds and GitHub releases
 
-The application remains C++/Qt. No model protocol or SQLite schema changes are introduced by these installers.
+Mark Six Studio is maintained as a GPLv3 open-source project with **unsigned Windows and macOS releases**. No paid signing service, developer membership or signing credentials are required. Installer filenames retain `unsigned` and releases include SHA-256 checksums. Application/model protocols and SQLite formats are unchanged.
 
-## Development installers
+## Build installers
 
-Windows: run the README's build/package commands. The wizard enforces Windows 10 build 17763 (1809) or newer, matching the [Qt 6.10 platform matrix](https://doc.qt.io/qt-6.10/supported-platforms.html). Inno Setup 7.1.0 and an official Microsoft VC redistributable are fetched with pinned SHA-256 hashes; the redistributable must also have a valid Microsoft Authenticode signature. The wizard uses stable AppId `3B52BF71-65D1-4C1F-A25E-0A3B16A7B3C8`, installs under Program Files and retains user data during removal. The VC prerequisite is bundled, so setup does not need internet. Standard-user installation can prompt for administrator credentials. A newer compatible VC runtime is retained: both MSI 1638 and bootstrapper HRESULT 0x80070666 are accepted without downgrading it.
+Windows: run the README's build/package commands. The setup wizard enforces Windows 10 build 17763 (1809) or newer, matching the [Qt 6.10 platform matrix](https://doc.qt.io/qt-6.10/supported-platforms.html). Hash-pinned Inno Setup 7.1.0 and an official VC redistributable are fetched automatically. The redistributable must have a valid Microsoft signature; this is a third-party prerequisite check, not a publisher certificate for our app. The wizard uses stable AppId `3B52BF71-65D1-4C1F-A25E-0A3B16A7B3C8`, installs under Program Files and retains user data during removal. Setup carries the runtime for offline installation and retains a newer compatible runtime. Administrator approval can be required.
 
-macOS: `bash scripts/build-macos.sh`, then `python3 scripts/package-macos.py`. CMake 3.25+ and Xcode 26+ Command Line Tools are prerequisites. Dependencies are hash-pinned Qt 6.10.2 universal qtbase/qtdeclarative/qtsvg and SQLite 3.53.4. The PKG installs a universal app under `/Applications`, with minimum macOS 13. No database, account, network download or developer SDK is required at installation. Remove the app bundle to uninstall; keep Application Support to retain data. Installer receipts are OS metadata, not a second application.
+macOS: run `bash scripts/build-macos.sh`, then `python3 scripts/package-macos.py`. CMake 3.25+ and Xcode 26+ Command Line Tools are build prerequisites. Dependencies are hash-pinned Qt 6.10.2 universal qtbase/qtdeclarative/qtsvg and SQLite 3.53.4. The PKG installs a universal app under `/Applications`, with minimum macOS 13 and bundle relocation disabled. Remove the app bundle to uninstall; Application Support remains intact. Installer receipts are OS metadata, not a second application.
 
-The package scripts refuse an existing output directory. Windows accepts `-OutputDirectory PATH`; macOS accepts `--output-dir PATH`. Unsigned development artifacts use `unsigned` in filenames and are not qualified public releases. Package signing changes payload hashes, so manifests are generated after signing. macOS manifests are outside the app bundle to preserve its code signature. The verifier permits only bundle-contained framework symlinks and resolves every Mach-O dependency against the bundle or system libraries.
+The macOS app uses free ad-hoc code signatures for binary integrity and Apple Silicon execution. These do not identify a trusted developer or provide notarization. The PKG is unsigned. Packaging does not need an Apple account.
 
-## Signing and publication
+Output directories are never overwritten. Windows accepts `-OutputDirectory PATH`; macOS accepts `--output-dir PATH`. Manifests record packaged files and hashes. macOS manifests sit outside the app bundle so they do not invalidate its integrity signature.
 
-The manual **Signed installers** workflow accepts an existing `vMAJOR.MINOR.PATCH` tag matching CMake's application version. It checks out that exact tag, builds/tests both platforms, signs, verifies and runs installation/data-preservation checks. Publication depends on both jobs passing; missing credentials fail the workflow. No release is published by ordinary CI.
+## Publish a GitHub release
 
-Configure these repository secrets before invoking the workflow:
+1. Merge the installer changes into the default branch so the **Release unsigned installers** workflow is available in Actions.
+2. Create and push a `vMAJOR.MINOR.PATCH` tag matching `src/desktop/CMakeLists.txt` (currently `v0.1.0`).
+3. Run **Release unsigned installers** from Actions and enter that tag.
 
-| Secret | Value |
-| --- | --- |
-| `WINDOWS_PFX_BASE64` | Base64 PKCS#12 containing a Windows code-signing certificate and private key |
-| `WINDOWS_PFX_PASSWORD` | Password protecting that PKCS#12 |
-| `MACOS_CERTIFICATES_BASE64` | Base64 PKCS#12 containing Developer ID Application and Developer ID Installer certificates and private keys |
-| `MACOS_CERTIFICATE_PASSWORD` | Password protecting the Apple PKCS#12 |
-| `MACOS_APP_IDENTITY` | Exact Developer ID Application signing identity |
-| `MACOS_INSTALLER_IDENTITY` | Exact Developer ID Installer signing identity |
-| `APPLE_NOTARY_KEY_BASE64` | Base64 App Store Connect API private key authorized for notarization |
-| `APPLE_NOTARY_KEY_ID` | API key identifier |
-| `APPLE_NOTARY_ISSUER` | API issuer identifier |
+The workflow checks out the exact tag, builds/tests each platform, creates unsigned installers and exercises installation, reinstall, removal and retained data. Publication requires both jobs to pass. Before publishing, it checks the complete two-platform asset set, versions, manifest and installer checksums. There are no signing secrets to configure. Ordinary CI uploads test artifacts and does not create a release.
 
-For local Windows signing, import the certificate into the current user's certificate store and set `WINDOWS_SIGN_CERT_THUMBPRINT`; optionally set `WINDOWS_SIGNTOOL`. Run package and installer scripts with `-Signed`. Signatures use SHA-256 and a timestamp, then undergo Authenticode verification. A hardware-backed signing provider can supply the imported certificate/key through the Windows certificate store.
+Release notes explicitly identify the unsigned policy, installation approval requirements and verification limits. The workflow uses [release-notes.md](release-notes.md) as its release body. A checksum verifies that a download matches the repository's recorded file; it does not authenticate a publisher.
 
-For local macOS signing, set `MACOS_APP_IDENTITY`, `MACOS_INSTALLER_IDENTITY` and `MACOS_NOTARY_PROFILE` (an existing `notarytool` keychain profile), then run `python3 scripts/package-macos.py --signed`. `MACOS_NOTARY_KEYCHAIN` optionally identifies a non-default keychain. The app uses hardened runtime and the QML JIT entitlement. Both app and PKG are notarized, stapled and assessed. Temporary CI credentials are removed at job completion.
+## Installation approval
 
-## Verification and limits
+Download from this repository's GitHub Releases and compare the supplied SHA-256 checksum. On Windows, an unsigned installer can show an unknown-publisher or SmartScreen prompt. Smart App Control or organization policies may block unsigned apps; see [Microsoft's explanation](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation).
 
-`verify-statistics-package.ps1` checks the Windows folder's exact inventory and hashes. `verify-macos-package.py APP --manifest MANIFEST` checks universal binaries, minimum OS, bundle identity, resources, dependencies, symlink containment, signatures and hashes. With `--require-signed`, it also requires a Developer ID hardened-runtime signature. Negative fixtures reject missing resources, user databases and escaping links.
+For a trusted macOS download that is blocked as unidentified or unnotarized, try opening it, then use System Settings > Privacy & Security > Open Anyway when available. Review the package/app name before approving. See [Apple's instructions](https://support.apple.com/102445). No global disabling of security features is required by our build or installer scripts.
 
-`test-windows-installer.ps1` and `test-macos-installer.py` install, reinstall, remove, compare retained data hashes and reinstall again. They deliberately run only on disposable GitHub Actions runners. Do not run a system installation test against a personal installation or live data root.
+## Verification and known limits
 
-Implementation-machine evidence (2026-10-23): macOS 27 Apple Silicon, universal build; backend and Qt adapter suites pass natively and under Rosetta x86_64. A copied development app launches with developer Qt paths absent; package/extracted-payload checks and negative fixtures pass. This is not native Intel hardware or minimum-macOS acceptance. The current Windows installer has not been executed on this Mac. Workflow lint and PowerShell syntax checks are separate from native execution.
+`verify-statistics-package.ps1` checks the exact Windows folder inventory and hashes. `verify-macos-package.py APP --manifest MANIFEST` checks universal binaries, minimum OS, bundle identity, resources, internal dependencies, symlinks, runtime search paths, integrity signatures and hashes. Negative fixtures reject missing resources, user databases, escaping links and external runtime search paths.
 
-Public release qualification remains open until actual Developer ID/Windows credentials, clean target-machine runs, offline installation, real-display scaling and keyboard/VoiceOver/Narrator checks are available. Prior manual waivers and old folder-package checks do not count as passes for these new installers.
+`test-windows-installer.ps1` and `test-macos-installer.py` install, reinstall, remove, compare retained data hashes and reinstall again on disposable CI runners. They refuse to run these system changes outside GitHub Actions. `verify-release-artifacts.py --tag v0.1.0 --artifacts DIRECTORY` checks the files to be published; its unit fixtures cover wrong tags, missing/extra assets, modified installers, bad checksum paths, mismatched manifests and symlinks.
+
+On 2026-10-23, native Windows Server 2022 and macOS 15 CI passed builds, backend/Qt suites, package checks and installer lifecycle/data-preservation checks at commit 56ba685. Local macOS 27 tests also passed natively and under Rosetta x86_64, with copied-app launch, screenshot review and a native worker-thread HTTPS probe. Separate minimum-OS installs, native Intel hardware, real-display scaling and manual VoiceOver/Narrator acceptance remain unverified. The user's unsigned-release decision retires signed release qualification; it does not turn these unperformed checks into passes.
+
+Local opt-in signing switches remain available for a future maintainer who already has credentials. They are optional and are not used by the GitHub release workflow.
