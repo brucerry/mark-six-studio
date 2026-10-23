@@ -24,10 +24,12 @@ using namespace marksix::updates;
 namespace {
 int checks = 0;
 const char* stage = "setup";
-void check(bool value) {
+void checkAt(bool value, int line, const char* expression) {
     ++checks;
-    if (!value) throw std::runtime_error(std::string(stage) + " failed at check " + std::to_string(checks));
+    if (!value) throw std::runtime_error(std::string(stage) + " failed at line " + std::to_string(line) +
+        " (check " + std::to_string(checks) + "): " + expression);
 }
+#define check(expression) checkAt(bool(expression), __LINE__, #expression)
 template<class Predicate> void until(Predicate condition) {
     QElapsedTimer clock;
     clock.start();

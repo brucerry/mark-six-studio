@@ -55,6 +55,19 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
                 dialog->property("height").toDouble() <= window->height() - 16 &&
                 status->height() > 0 && notes->height() > 0;
             okay = fits && okay;
+            auto* again = window->findChild<QQuickItem*>(QStringLiteral("checkAppUpdatesAgainButton"));
+            if (notes) notes->forceActiveFocus();
+            QKeyEvent tabPress(QEvent::KeyPress, Qt::Key_Tab, Qt::NoModifier);
+            QKeyEvent tabRelease(QEvent::KeyRelease, Qt::Key_Tab, Qt::NoModifier);
+            QCoreApplication::sendEvent(window, &tabPress);
+            QCoreApplication::sendEvent(window, &tabRelease);
+            QCoreApplication::processEvents();
+            okay = again && again->hasActiveFocus() && okay;
+            auto* viewRelease = window->findChild<QQuickItem*>(QStringLiteral("viewAppReleaseButton"));
+            QCoreApplication::sendEvent(window, &tabPress);
+            QCoreApplication::sendEvent(window, &tabRelease);
+            QCoreApplication::processEvents();
+            okay = viewRelease && viewRelease->hasActiveFocus() && okay;
         }
         std::cout << "APP_UPDATE_DIALOG_AUDIT=" << (okay ? "PASS" : "FAIL") << '\n';
         QCoreApplication::exit(okay && capture() ? 0 : 17);

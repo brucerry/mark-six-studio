@@ -245,12 +245,14 @@ void UpdateController::openInstaller() {
     const QFileInfo info(verifiedPath_);
     QFile file(verifiedPath_);
     QCryptographicHash digest(QCryptographicHash::Sha256);
-    if (!info.isFile() || info.isSymbolicLink() || info.size() != totalBytes() || !file.open(QIODevice::ReadOnly) ||
-        !digest.addData(&file) || digest.result() != expectedDigest_) {
+    const bool verified = info.isFile() && !info.isSymbolicLink() && info.size() == totalBytes() &&
+        file.open(QIODevice::ReadOnly) && digest.addData(&file) && digest.result() == expectedDigest_;
+    // Close our handle before removing a rejected cache directory on Windows.
+    file.close();
+    if (!verified) {
         fail(QStringLiteral("The downloaded installer has changed. Download it again before installing."));
         return;
     }
-    file.close();
     if (!opener_ || !opener_(QUrl::fromLocalFile(verifiedPath_))) {
         setState(QStringLiteral("ready"), QStringLiteral("The installer could not be opened. Try Install and close app again."));
         return;

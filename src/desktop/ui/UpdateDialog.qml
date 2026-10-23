@@ -79,11 +79,26 @@ Dialog {
                 readOnly: true
                 selectByMouse: true
                 activeFocusOnTab: true
+                Keys.priority: Keys.BeforeItem
+                Keys.onTabPressed: (event) => {
+                    if (dialog.updater.busy) cancelButton.forceActiveFocus()
+                    else checkAgainButton.forceActiveFocus()
+                    event.accepted = true
+                }
+                Keys.onBacktabPressed: (event) => {
+                    closeButton.forceActiveFocus()
+                    event.accepted = true
+                }
                 wrapMode: TextEdit.Wrap
                 color: StudioTheme.text
                 font.family: StudioTheme.fontFamily
                 font.pixelSize: 14
-                background: Rectangle { color: StudioTheme.background; radius: 8 }
+                background: Rectangle {
+                    color: StudioTheme.background
+                    radius: 8
+                    border.color: notes.activeFocus ? StudioTheme.gold : "transparent"
+                    border.width: notes.activeFocus ? 2 : 0
+                }
                 Accessible.name: "Release notes"
             }
         }
@@ -109,11 +124,14 @@ Dialog {
             anchors.margins: 12
             spacing: 8
             ActionButton {
+                id: checkAgainButton
+                objectName: "checkAppUpdatesAgainButton"
                 text: "Check again"
                 visible: !dialog.updater.busy
                 onClicked: dialog.updater.checkForUpdates()
             }
             ActionButton {
+                objectName: "viewAppReleaseButton"
                 text: "View release"
                 onClicked: dialog.updater.openReleasePage()
             }
@@ -134,11 +152,13 @@ Dialog {
                 onClicked: dialog.updater.openInstaller()
             }
             ActionButton {
+                id: cancelButton
                 text: "Cancel"
                 visible: dialog.updater.state === "checking" || dialog.updater.state === "downloading"
                 onClicked: dialog.updater.cancel()
             }
             ActionButton {
+                id: closeButton
                 text: "Close"
                 onClicked: dialog.close()
             }

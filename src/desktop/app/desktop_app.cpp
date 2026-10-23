@@ -18,6 +18,7 @@
 #include <QIcon>
 #include <QQuickStyle>
 #include <QStandardPaths>
+#include <QStyleHints>
 
 #include <cmath>
 
@@ -30,6 +31,7 @@ int runDesktopApp(int argc, char* argv[]) {
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QGuiApplication app(argc, argv);
+    app.styleHints()->setTabFocusBehavior(Qt::TabFocusAllControls);
     app.setApplicationName(QStringLiteral("Mark Six Studio"));
     app.setApplicationDisplayName(QStringLiteral("Mark Six Studio"));
     app.setApplicationVersion(QStringLiteral(MARKSIX_APP_VERSION));
