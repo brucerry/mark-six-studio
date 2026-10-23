@@ -23,7 +23,7 @@ bool valid(const Presentation& value) {
 StatisticsLoader::StatisticsLoader(std::filesystem::path root, StatisticsModels& models, QObject* parent)
     : QObject(parent), models_(models), root_(std::move(root)),
       updater_(makeHkjcProvider(), {}, [this](const ArchiveState& state, int64_t attempt, std::stop_token stop) {
-          coordinator_.prepare(root_, state, attempt, stop).get();
+          (void)coordinator_.prepare(root_, state, attempt, stop).get();
       }),
       controlWorker_(root_) {
     pollTimer_.setInterval(20);
@@ -40,7 +40,7 @@ StatisticsLoader::StatisticsLoader(std::filesystem::path root, std::shared_ptr<U
                                    Job injectedJob, StatisticsModels& models, QObject* parent)
     : QObject(parent), models_(models), root_(std::move(root)),
       updater_(std::move(provider), {}, [this](const ArchiveState& state, int64_t attempt, std::stop_token stop) {
-          coordinator_.prepare(root_, state, attempt, stop).get();
+          (void)coordinator_.prepare(root_, state, attempt, stop).get();
       }), controlWorker_(root_), job_(std::move(injectedJob)) {
     pollTimer_.setInterval(20);
     connect(&pollTimer_, &QTimer::timeout, this, &StatisticsLoader::poll);
@@ -141,8 +141,8 @@ bool StatisticsLoader::previewCsv(const QUrl& csv, const QUrl& manifest) {
     if (closed_ || root_.empty() || updater_.busy() || sourceWorker_.busy() ||
         !csv.isLocalFile() || !manifest.isLocalFile()) return false;
     preview_.reset();
-    const auto csvPath = std::filesystem::path(csv.toLocalFile().toStdWString());
-    const auto manifestPath = std::filesystem::path(manifest.toLocalFile().toStdWString());
+    const auto csvPath = std::filesystem::path(csv.toLocalFile().toStdU16String());
+    const auto manifestPath = std::filesystem::path(manifest.toLocalFile().toStdU16String());
     const auto root = root_;
     sourceWorker_.submit([root, csvPath, manifestPath](std::stop_token stop) {
         if (stop.stop_requested()) throw std::runtime_error("Import preview cancelled");

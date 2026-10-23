@@ -1,12 +1,10 @@
 #include "adaptive_coordinator.hpp"
-#include <Windows.h>
+#include "platform.hpp"
 #include <cstdio>
 
 namespace marksix::statistics {
 std::string adaptiveUtcNow() {
-    SYSTEMTIME t{}; GetSystemTime(&t); char text[32]{};
-    std::snprintf(text,sizeof(text),"%04u-%02u-%02uT%02u:%02u:%02uZ",unsigned(t.wYear),unsigned(t.wMonth),unsigned(t.wDay),unsigned(t.wHour),unsigned(t.wMinute),unsigned(t.wSecond));
-    return text;
+    return platform::utcNow();
 }
 AdaptiveCoordinator::AdaptiveCoordinator(Observer observer) : observer_(std::move(observer)), thread_([this] { run(); }) {}
 AdaptiveCoordinator::~AdaptiveCoordinator() { close(); }

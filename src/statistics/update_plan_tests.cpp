@@ -66,7 +66,7 @@ size_t testUpdatePlan(){
     auto invalid=latest;invalid.main[0]=7;rejects([&]{compareUpdate(one,{invalid});},"Malformed number rejects update comparison");
     auto wrong=latest;wrong.source.sourceId="foreign";rejects([&]{planUpdate(policy,one,full,wrong);},"Latest source mismatch rejected");
     wrong=latest;wrong.date="2024-04-01";rejects([&]{planUpdate(policy,one,full,wrong);},"Latest outside requested range rejected");
-    for(const auto dates:std::vector<DateRange>{{"2024-02-30","2024-03-31"},{"2024-03-31","2024-01-01"},{"1975-01-01","9999-12-31"}}){auto bad=policy;bad.available=dates;rejects([&]{planUpdate(bad,empty,{});},"Invalid/reversed/oversized date span rejected");}
+    for(const auto& dates:std::vector<DateRange>{{"2024-02-30","2024-03-31"},{"2024-03-31","2024-01-01"},{"1975-01-01","9999-12-31"}}){auto bad=policy;bad.available=dates;rejects([&]{planUpdate(bad,empty,{});},"Invalid/reversed/oversized date span rejected");}
     for(size_t bound:{size_t(0),size_t(367)}){auto bad=policy;bad.maximumWindowDays=bound;rejects([&]{planUpdate(bad,empty,{});},"Invalid request bound rejected");bad=policy;bad.correctionOverlapDays=bound;rejects([&]{planUpdate(bad,empty,{});},"Invalid overlap bound rejected");}
     auto broken=receipt("2024-01-01","2024-03-31");broken.responseSha256="bad";
     rejects([&]{planUpdate(policy,empty,{broken});},"Malformed committed receipt rejected");

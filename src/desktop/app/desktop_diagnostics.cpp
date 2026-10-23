@@ -20,27 +20,11 @@
 #include <iostream>
 #include <memory>
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <psapi.h>
+#include "platform.hpp"
 
 namespace {
-double processCpuMs() {
-    FILETIME created{}, exited{}, kernel{}, user{};
-    if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel, &user)) return -1;
-    ULARGE_INTEGER k{}, u{};
-    k.LowPart = kernel.dwLowDateTime; k.HighPart = kernel.dwHighDateTime;
-    u.LowPart = user.dwLowDateTime; u.HighPart = user.dwHighDateTime;
-    return double(k.QuadPart + u.QuadPart) / 10000.0;
-}
-size_t peakWorkingSet() {
-    PROCESS_MEMORY_COUNTERS_EX memory{};
-    memory.cb = sizeof(memory);
-    return K32GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&memory),
-        sizeof(memory)) ? memory.PeakWorkingSetSize : 0;
-}
+double processCpuMs() { return marksix::statistics::platform::cpuMilliseconds(); }
+size_t peakWorkingSet() { return marksix::statistics::platform::peakMemoryBytes(); }
 }
 
 int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, StatisticsLoader& loader,

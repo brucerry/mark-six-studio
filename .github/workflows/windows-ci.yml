@@ -39,3 +39,16 @@ jobs:
           path: release/mark-six-studio/
           if-no-files-found: error
           retention-days: 14
+      - name: Build offline unsigned development installer
+        shell: pwsh
+        run: ./scripts/build-windows-installer.ps1 -PackageDirectory ./release/mark-six-studio
+      - name: Exercise installation, removal and retained data
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem ./release/windows-installer/*-unsigned-setup.exe
+          ./scripts/test-windows-installer.ps1 -Installer $installer.FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mark-six-studio-windows-x64-unsigned-${{ github.sha }}
+          path: release/windows-installer/*
+          if-no-files-found: error

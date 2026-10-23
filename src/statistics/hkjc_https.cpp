@@ -73,19 +73,9 @@ struct AsyncRequest {
     }
 };
 }
-void checkHkjcHttpStatus(unsigned status) {
-    if (status == 429) throw ProviderFailure(UpdateFailure::RateLimited);
-    if (status == 401 || status == 403 || (status >= 300 && status < 400)) throw ProviderFailure(UpdateFailure::Denied);
-    if (status != 200) throw ProviderFailure(UpdateFailure::Connection);
-}
 std::string hkjcHttps(const HkjcRequest& input, std::stop_token stop) {
     if (stop.stop_requested()) throw ProviderFailure(UpdateFailure::Cancelled);
-    const bool page = input.host == "bet.hkjc.com" && input.body.empty() &&
-        (input.path == "/en/marksix/results" || (input.path.starts_with("/static/js/main.") && input.path.ends_with(".js") &&
-         input.path.find_first_not_of("/._abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") == std::string::npos));
-    const bool query = input.host == "info.cld.hkjc.com" && input.path == "/graphql/base/" && !input.body.empty();
-    if ((!page && !query) || !input.maximumBytes || input.maximumBytes > 16 * 1024 * 1024 || input.body.size() > 16384)
-        throw ProviderFailure(UpdateFailure::Schema);
+    validateHkjcRequest(input);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(25);
     Handle session(WinHttpOpen(L"MarkSixEmulator/1.0 local-history", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
                               WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, WINHTTP_FLAG_ASYNC));

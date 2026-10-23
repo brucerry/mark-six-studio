@@ -1,7 +1,8 @@
-param([string]$PackageDirectory)
+param([string]$PackageDirectory, [switch]$Signed)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ($Signed -and -not $env:WINDOWS_SIGN_CERT_THUMBPRINT) { throw 'Signing credentials are required for a signed release.' }
 $qt = Join-Path $repo 'deps/Qt-6.10.2-msvc2022_64'
 $application = Join-Path $repo 'build/statistics-desktop/mark-six-studio.exe'
 if (-not $PackageDirectory) { $PackageDirectory = Join-Path $repo 'release/mark-six-studio' }
@@ -24,6 +25,7 @@ foreach ($name in $licenseHashes.Keys) {
 }
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 Copy-Item -LiteralPath $application -Destination $destination
+if ($Signed) { & (Join-Path $PSScriptRoot 'sign-windows-file.ps1') -Path (Join-Path $destination 'mark-six-studio.exe') }
 $previousPath = $env:PATH
 try {
     $env:PATH = "$(Join-Path $qt 'bin');$env:PATH"
@@ -35,6 +37,7 @@ try {
 New-Item -ItemType Directory -Path (Join-Path $destination 'licenses') | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $destination 'sbom') | Out-Null
 Copy-Item -LiteralPath (Join-Path $repo 'src/desktop/package-readme.md') -Destination (Join-Path $destination 'README.md')
+Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $destination 'licenses/GPL-3.0.txt')
 Copy-Item -LiteralPath (Join-Path $repo 'src/desktop/qt-redistribution-notice.txt') -Destination (Join-Path $destination 'licenses/Qt-Notice.txt')
 Copy-Item -LiteralPath (Join-Path $repo 'src/resources/sqlite-notice.txt') -Destination (Join-Path $destination 'licenses/SQLite.txt')
 foreach ($name in $licenseHashes.Keys) {

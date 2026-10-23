@@ -7,7 +7,7 @@ std::optional<DesktopOptions> parseDesktopOptions(const QStringList& arguments) 
         const auto& argument = arguments[index];
         if (argument == QStringLiteral("--data-dir")) {
             if (++index >= arguments.size() || arguments[index].isEmpty()) return std::nullopt;
-            options.dataRoot = std::filesystem::path(arguments[index].toStdWString());
+            options.dataRoot = std::filesystem::path(arguments[index].toStdU16String());
         } else if (argument == QStringLiteral("--screenshot")) {
             if (++index >= arguments.size() || arguments[index].isEmpty()) return std::nullopt;
             options.screenshotPath = arguments[index];

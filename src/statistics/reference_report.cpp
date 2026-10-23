@@ -3,9 +3,7 @@
 #include "forecast.hpp"
 #include "adaptive_ledger.hpp"
 #include "forecast_lab.hpp"
-#define NOMINMAX
-#include <Windows.h>
-#include <psapi.h>
+#include "platform.hpp"
 #include <chrono>
 #include <fstream>
 #include "import.hpp"
@@ -90,9 +88,7 @@ void forecastLabOfficialReport(const std::filesystem::path& root) {
     std::array<size_t, 15> chosen{};
     for (const auto& step : replay.steps)
         if (step.frozen.completedDraws >= 400) ++chosen[step.frozen.decision.candidate];
-    PROCESS_MEMORY_COUNTERS memory{}; memory.cb = sizeof memory;
-    require(K32GetProcessMemoryInfo(GetCurrentProcess(), &memory, sizeof memory) != 0,
-            "Cannot measure Forecast Lab process memory");
+    const auto peakMemory = platform::peakMemoryBytes();
     const auto millis = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - began).count();
     const auto stats = std::minmax_element(controls.nullStatistics.begin(),
@@ -141,7 +137,7 @@ void forecastLabOfficialReport(const std::filesystem::path& root) {
               << "\ncontrol_right_tail=" << controls.tailFraction
               << "\ncontrol_simulation_se=" << controls.simulationStdError
               << "\nwhole_run_milliseconds=" << millis
-              << "\npeak_working_set_bytes=" << memory.PeakWorkingSetSize
+              << "\npeak_working_set_bytes=" << peakMemory
               << "\ninterpretation=Inspected development replay and full-procedure fair controls; no fresh historical holdout or guaranteed next-draw advantage.\n";
     for (size_t i = 0; i < controls.completed; ++i)
         std::cout << "control_" << i + 1 << '=' << controls.historyHashes[i]
