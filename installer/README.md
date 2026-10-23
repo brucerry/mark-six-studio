@@ -2,6 +2,8 @@
 
 Mark Six Studio is maintained as a GPLv3 open-source project with **unsigned Windows and macOS releases**. No paid signing service, developer membership or signing credentials are required. Installer filenames retain `unsigned` and releases include SHA-256 checksums. Application/model protocols and SQLite formats are unchanged.
 
+Users can download installers from the [latest release](https://github.com/brucerry/mark-six-studio/releases/latest). Updates currently require downloading and running the newer installer; in-app updating is planned.
+
 ## Build installers
 
 Windows: run the README's build/package commands. The setup wizard enforces Windows 10 build 17763 (1809) or newer, matching the [Qt 6.10 platform matrix](https://doc.qt.io/qt-6.10/supported-platforms.html). Hash-pinned Inno Setup 7.1.0 and an official VC redistributable are fetched automatically. The redistributable must have a valid Microsoft signature; this is a third-party prerequisite check, not a publisher certificate for our app. The wizard uses stable AppId `3B52BF71-65D1-4C1F-A25E-0A3B16A7B3C8`, installs under Program Files and retains user data during removal. Setup carries the runtime for offline installation and retains a newer compatible runtime. Administrator approval can be required.
@@ -35,5 +37,7 @@ For a trusted macOS download that is blocked as unidentified or unnotarized, try
 `test-windows-installer.ps1` and `test-macos-installer.py` install, reinstall, remove, compare retained data hashes and reinstall again on disposable CI runners. They refuse to run these system changes outside GitHub Actions. `verify-release-artifacts.py --tag v0.1.0 --artifacts DIRECTORY` checks the files to be published; its unit fixtures cover wrong tags, missing/extra assets, modified installers, bad checksum paths, mismatched manifests and symlinks.
 
 On 2026-10-23, native Windows Server 2022 and macOS 15 CI passed builds, backend/Qt suites, package checks and installer lifecycle/data-preservation checks at commit 56ba685. Local macOS 27 tests also passed natively and under Rosetta x86_64, with copied-app launch, screenshot review and a native worker-thread HTTPS probe. Separate minimum-OS installs, native Intel hardware, real-display scaling and manual VoiceOver/Narrator acceptance remain unverified. The user's unsigned-release decision retires signed release qualification; it does not turn these unperformed checks into passes.
+
+The unsigned v0.1.0 PKG was additionally installed through the native wizard on an Apple Silicon Mac running macOS 27.0.1. The installed copy launched from `/Applications/Mark Six Studio.app`, rendered its dashboard, and the user confirmed it runs. This verifies that installation and launch on this machine; it does not complete the other target-machine or accessibility checks above.
 
 Local opt-in signing switches remain available for a future maintainer who already has credentials. They are optional and are not used by the GitHub release workflow.

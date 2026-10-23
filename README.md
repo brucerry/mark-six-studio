@@ -8,6 +8,8 @@ Desktop application for historical draw analysis and experimental forecasts, usi
 
 ## Installation
 
+Download the installers from the [latest GitHub release](https://github.com/brucerry/mark-six-studio/releases/latest). Choose the Windows x64 setup EXE or the macOS universal PKG. Updates currently use the same installer download and preserve local data; in-app updating is planned.
+
 The delivery targets are Windows 10 (1809+)/11 x64 and macOS 13+ on Apple Silicon or Intel. Windows uses a setup EXE; macOS uses a native PKG installation wizard. Both carry application dependencies for offline installation. Windows setup installs the official Microsoft C++ runtime when needed and can request administrator permission. The macOS package installs **Mark Six Studio** in Applications.
 
 GitHub releases use **unsigned installers**, with `unsigned` in each filename and a SHA-256 checksum for each download. No signing certificates, Apple Developer membership or signing service are required. The manual [release workflow](.github/workflows/release.yml) publishes only after both platforms pass their build, package and installation checks.
