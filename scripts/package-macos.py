@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -124,10 +125,40 @@ def main():
         if any(error in smoke.stderr for error in ("TypeError:", "ReferenceError:", "failed to load component")):
             raise RuntimeError("QML runtime error: " + smoke.stderr)
     pkg = args.output_dir / (stem + ".pkg")
-    command = ["productbuild", "--component", app, "/Applications"]
-    if args.signed:
-        command.extend(["--sign", identities[1]])
-    run(*command, pkg)
+    # Explicit component policy prevents Installer from redirecting an upgrade
+    # to a build-tree copy with the same bundle identifier on older macOS.
+    with tempfile.TemporaryDirectory(prefix="marksix-pkg-") as temporary:
+        staging = Path(temporary)
+        payload = staging / "payload"
+        payload.mkdir()
+        shutil.copytree(app, payload / app.name, symlinks=True)
+        policy = staging / "components.plist"
+        with policy.open("wb") as handle:
+            plistlib.dump([{"RootRelativeBundlePath": app.name, "BundleIsRelocatable": False,
+                           "BundleIsVersionChecked": True, "BundleHasStrictIdentifier": True,
+                           "BundleOverwriteAction": "upgrade"}], handle)
+        component = staging / "application.pkg"
+        run("pkgbuild", "--root", payload, "--component-plist", policy,
+            "--identifier", "com.brucerry.marksixstudio", "--version", version,
+            "--install-location", "/Applications", component)
+        distribution = ET.Element("installer-gui-script", {"minSpecVersion": "2"})
+        ET.SubElement(distribution, "title").text = "Mark Six Studio"
+        ET.SubElement(distribution, "options", {"customize": "never", "require-scripts": "false", "hostArchitectures": "arm64,x86_64"})
+        ET.SubElement(distribution, "domains", {"enable_anywhere": "false", "enable_currentUserHome": "false", "enable_localSystem": "true"})
+        allowed = ET.SubElement(ET.SubElement(distribution, "volume-check"), "allowed-os-versions")
+        ET.SubElement(allowed, "os-version", {"min": "13.0"})
+        outline = ET.SubElement(distribution, "choices-outline")
+        ET.SubElement(outline, "line", {"choice": "application"})
+        choice = ET.SubElement(distribution, "choice", {"id": "application", "visible": "false", "title": "Mark Six Studio"})
+        ET.SubElement(choice, "pkg-ref", {"id": "com.brucerry.marksixstudio"})
+        reference = ET.SubElement(distribution, "pkg-ref", {"id": "com.brucerry.marksixstudio", "version": version, "onConclusion": "none"})
+        reference.text = "application.pkg"
+        definition = staging / "Distribution.xml"
+        ET.ElementTree(distribution).write(definition, encoding="utf-8", xml_declaration=True)
+        command = ["productbuild", "--distribution", definition, "--package-path", staging]
+        if args.signed:
+            command.extend(["--sign", identities[1]])
+        run(*command, pkg)
     if args.signed:
         run("xcrun", "notarytool", "submit", pkg, "--keychain-profile", identities[2], *notary_keychain, "--wait")
         run("xcrun", "stapler", "staple", pkg)
