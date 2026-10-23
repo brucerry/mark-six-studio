@@ -5,6 +5,7 @@ import hashlib
 import os
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,32 @@ def main():
     signing = "-sign-for-notarization=" + identities[0] if args.signed else "-codesign=-"
     run(qt / "bin/macdeployqt", app, "-qmldir=" + str(ROOT / "src/desktop"),
         "-no-plugins", *extra_executables, signing)
+    # QML plugins are relocated out of their original import directories.
+    # Remove stale search paths that would now escape the application bundle.
+    for binary in app.rglob("*"):
+        if binary.is_symlink() or not binary.is_file():
+            continue
+        with binary.open("rb") as handle:
+            magic = handle.read(4)
+        if magic not in {b"\xca\xfe\xba\xbe", b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf"}:
+            continue
+        commands = subprocess.check_output(["otool", "-l", str(binary)], text=True)
+        changed = False
+        for rpath in set(re.findall(r"cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset", commands)):
+            safe = False
+            for prefix, base in (("@loader_path/", binary.parent), ("@executable_path/", app / "Contents/MacOS")):
+                if rpath.startswith(prefix):
+                    resolved = (base / rpath[len(prefix):]).resolve()
+                    safe = resolved == app or app in resolved.parents
+                    break
+            if not safe:
+                run("install_name_tool", "-delete_rpath", rpath, binary)
+                changed = True
+        if changed:
+            if args.signed:
+                run("codesign", "--force", "--options", "runtime", "--timestamp", "--sign", identities[0], binary)
+            else:
+                run("codesign", "--force", "--sign", "-", binary)
     # Re-sign the root after deployment to include all resources and nested code.
     if args.signed:
         run("codesign", "--force", "--options", "runtime", "--timestamp", "--entitlements", resources / "marksix.entitlements", "--sign", identities[0], app)

@@ -4,6 +4,7 @@ import importlib.util
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -36,6 +37,12 @@ def main():
         escaping.symlink_to(Path(temporary))
         rejects("escaping framework/resource link")
         escaping.unlink()
+        executable = app / "Contents/MacOS/mark-six-studio"
+        executable.unlink()
+        shutil.copy2(source / "Contents/MacOS/mark-six-studio", executable)
+        subprocess.run(["install_name_tool", "-add_rpath", "/tmp/marksix-external-runtime", str(executable)], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        rejects("external runtime search path")
         print("PASS package verifier negative fixtures")
 
 if __name__ == "__main__":

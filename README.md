@@ -29,7 +29,7 @@ Run `build/statistics-desktop/mark-six-studio.exe`, or the copied application in
 
 ## Build on macOS
 
-Install Xcode Command Line Tools, Python 3 and CMake 3.25 or newer. Then:
+Install Xcode 26+ Command Line Tools, Python 3 and CMake 3.25 or newer. Then:
 
 ```sh
 bash scripts/build-macos.sh

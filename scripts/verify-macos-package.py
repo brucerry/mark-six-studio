@@ -5,6 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 import plistlib
+import posixpath
+import re
 import subprocess
 
 MAGIC = {b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf"}
@@ -48,12 +50,22 @@ def verify(app):
             arches = subprocess.check_output(["lipo", "-archs", str(path)], text=True).split()
             if set(arches) != {"arm64", "x86_64"}:
                 raise ValueError("Non-universal binary: " + relative)
+            commands = subprocess.check_output(["otool", "-l", str(path)], text=True)
+            for rpath in re.findall(r"cmd LC_RPATH\s+cmdsize \d+\s+path (.*?) \(offset", commands):
+                for prefix, base in (("@loader_path/", path.parent), ("@executable_path/", app / "Contents/MacOS")):
+                    if rpath.startswith(prefix):
+                        target = (base / rpath[len(prefix):]).resolve()
+                        if target != app and app not in target.parents:
+                            raise ValueError("Escaping runtime search path: " + rpath)
+                        break
+                else:
+                    raise ValueError("External runtime search path: " + rpath)
             linked = subprocess.check_output(["otool", "-L", str(path)], text=True)
             for line in linked.splitlines():
                 if not line.startswith("\t"):
                     continue
                 dependency = line.strip().split(" (", 1)[0]
-                if dependency.startswith(("/System/Library/", "/usr/lib/")):
+                if posixpath.normpath(dependency).startswith(("/System/Library/", "/usr/lib/")):
                     continue
                 mappings = {"@rpath/": app / "Contents/Frameworks", "@executable_path/": app / "Contents/MacOS", "@loader_path/": path.parent}
                 for prefix, base in mappings.items():

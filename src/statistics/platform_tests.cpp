@@ -21,7 +21,7 @@ size_t testPlatform() {
     platform::randomBytes(random.data(), random.size());
     const auto directory = std::filesystem::temp_directory_path() / ("marksix-platform-" + sha256(std::string_view(reinterpret_cast<char*>(random.data()), random.size())));
     std::filesystem::create_directory(directory);
-    const auto file = directory / std::filesystem::path(u8"backup-\xe4\xb8\xad.sqlite3");
+    const auto file = directory / std::filesystem::path(u8"backup-\u4e2d.sqlite3");
     platform::reserveFile(file);
     { std::ofstream out(file); out << "preserve"; }
     bool rejected = false;
