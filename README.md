@@ -8,7 +8,7 @@ Desktop application for historical draw analysis and experimental forecasts, usi
 
 ## Installation
 
-The delivery targets are Windows 10/11 x64 and macOS 13+ on Apple Silicon or Intel. Windows uses a setup EXE; macOS uses a native PKG installation wizard. Both carry application dependencies for offline installation. Windows setup installs the official Microsoft C++ runtime when needed and can request administrator permission. The macOS package installs **Mark Six Studio** in Applications.
+The delivery targets are Windows 10 (1809+)/11 x64 and macOS 13+ on Apple Silicon or Intel. Windows uses a setup EXE; macOS uses a native PKG installation wizard. Both carry application dependencies for offline installation. Windows setup installs the official Microsoft C++ runtime when needed and can request administrator permission. The macOS package installs **Mark Six Studio** in Applications.
 
 Development CI artifacts have `unsigned` in their names. They are test packages, not signed public releases. The separate [release workflow](.github/workflows/release.yml) requires signing credentials, notarization and successful platform checks before publishing. See [installer documentation and current verification limits](installer/README.md).
 
