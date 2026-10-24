@@ -99,7 +99,7 @@ Column {
             width: storagePage.width
             spacing: 4
             SelectableText { width: parent.width; text: modelData.kind + " · account " + (modelData.account || "shared installation") + "\n" + modelData.path + (modelData.available ? "" : "\nUnavailable or absent — not counted as empty") }
-            ActionButton { text: "Open folder"; accessibleLabel: "Open " + modelData.path; enabled: modelData.available; onClicked: appStorage.openFolder(modelData.path) }
+            ActionButton { text: modelData.openLabel; accessibleLabel: text + " " + modelData.openPath; enabled: modelData.available; onClicked: appStorage.openFolder(modelData.path) }
         }
     }
     Text { text: "Preserved legacy files"; font.pixelSize: 20; font.weight: Font.DemiBold; color: StudioTheme.gold }

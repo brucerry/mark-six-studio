@@ -13,6 +13,9 @@ QString qpath(const fs::path& value) {
     catch (const std::exception&) { return QString::fromStdString(quotedReportField(pathUtf8(value))); }
 }
 QString qtext(const std::string& value) { return QString::fromUtf8(value.data(), qsizetype(value.size())); }
+QString folderTarget(const QFileInfo& info) {
+    return info.isBundle() ? info.absolutePath() : info.absoluteFilePath();
+}
 }
 StorageController::StorageController(fs::path root, Discovery discovery, FolderOpener opener, QObject* parent, ApplicationDiscovery applications, CatalogFetcher catalog)
     : QObject(parent), root_(std::move(root)), discovery_(std::move(discovery)), opener_(std::move(opener)), applications_(std::move(applications)), fetchCatalog_(std::move(catalog)) {
@@ -96,8 +99,19 @@ void StorageController::addLocation(const QUrl& folder, bool downloads, const QS
 bool StorageController::openFolder(const QString& path) {
     bool reviewed = false;
     for (const auto& row : locations_) if (row.toMap().value(QStringLiteral("path")).toString() == path) reviewed = true;
-    if (!reviewed || !QFileInfo(path).isDir()) return false;
-    return opener_(QUrl::fromLocalFile(path));
+    if (!reviewed) {
+        status_ = QStringLiteral("Refresh storage before opening an unreviewed location.");
+        emit changed(); return false;
+    }
+    const QFileInfo info(path);
+    const auto folder = folderTarget(info);
+    if (!info.isDir() || !QFileInfo(folder).isDir()) {
+        status_ = QStringLiteral("This location is unavailable. Refresh storage and try again: ") + path;
+        emit changed(); return false;
+    }
+    if (opener_(QUrl::fromLocalFile(folder))) return true;
+    status_ = QStringLiteral("Could not open folder: ") + folder;
+    emit changed(); return false;
 }
 void StorageController::poll() {
     if (!future_.valid() || future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
@@ -126,8 +140,11 @@ void StorageController::poll() {
                 (i != qsizetype(Category::Installer) || (catalog_ && catalog_->complete)) &&
                 i != qsizetype(Category::Registration) && i != qsizetype(Category::Maintenance)}});
         const auto location = [&](const fs::path& path, const std::string& account, const QString& kind) {
+            const QFileInfo info(qpath(path));
             locations_.push_back(QVariantMap{{QStringLiteral("path"), qpath(path)}, {QStringLiteral("account"), qtext(account)},
-                {QStringLiteral("kind"), kind}, {QStringLiteral("available"), QFileInfo(qpath(path)).isDir()}});
+                {QStringLiteral("kind"), kind}, {QStringLiteral("available"), info.isDir()},
+                {QStringLiteral("openPath"), folderTarget(info)},
+                {QStringLiteral("openLabel"), info.isBundle() ? QStringLiteral("Open containing folder") : QStringLiteral("Open folder")}});
         };
         for (const auto& user : result.users) {
             location(user.dataRoot, user.account, QStringLiteral("Saved records"));

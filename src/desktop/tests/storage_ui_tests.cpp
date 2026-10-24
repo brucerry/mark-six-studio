@@ -158,6 +158,37 @@ int main(int argc, char** argv) {
         check(payloadPreview.preservedReport().contains(QString::fromStdString(quotedReportField(pathUtf8(renamed)))) &&
             payloadPreview.preservedReport().contains(QString::fromStdString(first.account)),
             "Storage preview lists renamed legacy payload hints with full paths and native accounts before payload inspection");
+#ifdef __APPLE__
+        const auto bundle = first.home / "Applications/Mark 六 Studio.app";
+        write(bundle / "Contents/Info.plist", "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict>"
+            "<key>CFBundleIdentifier</key><string>com.brucerry.marksixstudio</string>"
+            "<key>CFBundlePackageType</key><string>APPL</string>"
+            "<key>CFBundleExecutable</key><string>mark-six-studio</string></dict></plist>");
+        write(bundle / "Contents/MacOS/mark-six-studio", "private fixture; never executed");
+        QUrl openedUrl; int folderCalls = 0; bool allowOpen = true;
+        StorageController bundlePreview(first.dataRoot, [&](bool, auto&) { return std::vector<UserStorage>{first}; },
+            [&](const QUrl& url) { openedUrl = url; ++folderCalls; return allowOpen; }, nullptr,
+            [&](const auto&, auto&) { return std::vector<InstalledApplication>{{bundle, bundle / "Contents/MacOS/mark-six-studio", {}, {}}}; });
+        bundlePreview.refresh(); ready(bundlePreview);
+        const auto bundlePath = QString::fromStdU16String(bundle.u16string());
+        const auto parentPath = QString::fromStdU16String(bundle.parent_path().u16string());
+        const auto applicationRow = bundlePreview.locations().back().toMap();
+        check(applicationRow.value("path").toString() == bundlePath &&
+            applicationRow.value("openLabel").toString() == "Open containing folder" &&
+            applicationRow.value("openPath").toString() == parentPath,
+            "Application row keeps the reviewed bundle path and labels its actual folder action");
+        check(bundlePreview.openFolder(bundlePath) && folderCalls == 1 && openedUrl.isLocalFile() && openedUrl.toLocalFile() == parentPath,
+            "Opening a reviewed app location sends its containing folder to the OS, never the app bundle");
+        const auto dataPath = QString::fromStdU16String(first.dataRoot.u16string());
+        check(bundlePreview.openFolder(dataPath) && openedUrl.toLocalFile() == dataPath,
+            "Ordinary reviewed storage folders still open directly");
+        allowOpen = false;
+        check(!bundlePreview.openFolder(bundlePath) && bundlePreview.status().contains("Could not open folder") &&
+            bundlePreview.status().contains(parentPath), "Failed OS folder opening has visible feedback");
+        fs::remove_all(bundle); const auto callsBefore = folderCalls;
+        check(!bundlePreview.openFolder(bundlePath) && folderCalls == callsBefore && bundlePreview.status().contains("unavailable"),
+            "A disappeared application is reported without opening a stale location");
+#endif
         std::cout << checks << " storage controller assertions passed\n"; return 0;
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }
