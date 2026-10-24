@@ -1,5 +1,6 @@
 #include "desktop_options.hpp"
 #include "statistics_data_root.hpp"
+#include "native_runtime.hpp"
 
 std::optional<DesktopOptions> parseDesktopOptions(const QStringList& arguments) {
     DesktopOptions options;
@@ -24,7 +25,7 @@ std::optional<DesktopOptions> parseDesktopOptions(const QStringList& arguments) 
             if (++index >= arguments.size()) return std::nullopt;
             bool valid = false;
             options.requestedPage = arguments[index].toInt(&valid);
-            if (!valid || options.requestedPage < 0 || options.requestedPage > 4) return std::nullopt;
+            if (!valid || options.requestedPage < 0 || options.requestedPage > 5) return std::nullopt;
         } else if (argument == QStringLiteral("--comparison-tab")) {
             if (++index >= arguments.size()) return std::nullopt;
             bool valid = false;
@@ -35,5 +36,6 @@ std::optional<DesktopOptions> parseDesktopOptions(const QStringList& arguments) 
         }
     }
     if (options.dataRoot.empty()) options.dataRoot = defaultStatisticsDataRoot();
+    options.dataRoot = marksix::maintenance::normalizePlatformPath(options.dataRoot);
     return options;
 }

@@ -39,7 +39,8 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
     const bool layoutAudit = arguments.contains(QStringLiteral("--layout-audit"));
     if (!smoke && !layoutAudit && !arguments.contains(QStringLiteral("--app-update-audit")) &&
         !arguments.contains(QStringLiteral("--resize-audit")) &&
-        !arguments.contains(QStringLiteral("--accessibility-audit"))) loader.reload();
+        !arguments.contains(QStringLiteral("--accessibility-audit")) &&
+        !arguments.contains(QStringLiteral("--storage-cleanup-audit"))) loader.reload();
     if (smoke) QTimer::singleShot(900, &app, [&] { QCoreApplication::exit(capture() ? 0 : 5); });
     if (arguments.contains(QStringLiteral("--app-update-audit"))) QTimer::singleShot(250, &app, [&] {
         auto* dialog = window->findChild<QObject*>(QStringLiteral("appUpdateDialog"));
@@ -107,7 +108,7 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
     });
     if (arguments.contains(QStringLiteral("--navigation-audit"))) {
         QTimer::singleShot(20, &app, [&] {
-            for (int page = 0; page < 5; ++page) window->setProperty("pageIndex", page);
+            for (int page = 0; page < 6; ++page) window->setProperty("pageIndex", page);
             window->setProperty("pageIndex", 0);
             if (window->property("pageIndex").toInt() != 0) QCoreApplication::exit(7);
             else QTimer::singleShot(20, &app, &QCoreApplication::quit);
@@ -161,6 +162,79 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
         });
         check->start();
         QTimer::singleShot(120000, &app, [] { QCoreApplication::exit(15); });
+    }
+    if (arguments.contains(QStringLiteral("--storage-cleanup-audit"))) {
+        window->setProperty("pageIndex", 5);
+        auto* timer = new QTimer(&app); timer->setInterval(50);
+        const auto tries = std::make_shared<int>(0);
+        QObject::connect(timer, &QTimer::timeout, &app, [&, timer, tries] {
+            auto* status = window->findChild<QQuickItem*>(QStringLiteral("storageStatus"));
+            if (!status || status->property("text").toString().isEmpty() || status->property("text").toString().startsWith(QStringLiteral("Inspecting"))) {
+                if (++*tries > 400) { std::cerr << "STORAGE_CLEANUP_AUDIT=FAIL inspection timed out\n"; QCoreApplication::exit(16); }
+                return;
+            }
+            timer->stop(); bool okay = true;
+            auto* maintenanceStatus = window->findChild<QQuickItem*>(QStringLiteral("maintenanceStatus"));
+            std::cout << "STORAGE_MAINTENANCE_STATUS=" << (maintenanceStatus ? maintenanceStatus->property("text").toString().toStdString() : "<none>") << '\n';
+            std::cout << "STORAGE_WORK_BLOCKED=" << window->property("taskBlocking").toBool() << '\n';
+            auto* dialog = window->findChild<QObject*>(QStringLiteral("cleanupReviewDialog"));
+            auto* cancel = window->findChild<QQuickItem*>(QStringLiteral("cancelCleanupButton"));
+            auto* preserved = window->findChild<QQuickItem*>(QStringLiteral("preservedLegacyFiles"));
+            auto* account = window->findChild<QQuickItem*>(QStringLiteral("additionalLocationAccount"));
+            auto* accountAccess = account ? QAccessible::queryAccessibleInterface(account) : nullptr;
+            std::cout << "STORAGE_ACCOUNT accessible=" << bool(accountAccess) << " tab=" << (account && account->activeFocusOnTab()) << '\n';
+            okay = account && account->activeFocusOnTab() && accountAccess && accountAccess->role() == QAccessible::ComboBox &&
+                accountAccess->text(QAccessible::Name).contains(QStringLiteral("OS account")) && okay;
+            for (const auto& size : {QSize(800, 600), QSize(1280, 800)}) {
+                window->resize(size);
+                for (const auto* name : {"clearCacheButton", "resetSavedRecordsButton", "uninstallCompletelyButton"}) {
+                    auto* button = window->findChild<QQuickItem*>(QString::fromLatin1(name));
+                    auto* accessible = button ? QAccessible::queryAccessibleInterface(button) : nullptr;
+                    std::cout << "STORAGE_ACTION " << name << " exists=" << bool(button) << " enabled=" << (button && button->isEnabled())
+                        << " tab=" << (button && button->activeFocusOnTab()) << " accessible=" << bool(accessible)
+                        << " name=" << (accessible ? accessible->text(QAccessible::Name).toStdString() : "<none>") << '\n';
+                    okay = button && button->isEnabled() && button->activeFocusOnTab() && accessible && accessible->role() == QAccessible::Button && !accessible->text(QAccessible::Name).isEmpty() && okay;
+                    if (!button || !button->isEnabled()) continue;
+                    button->forceActiveFocus(Qt::TabFocusReason);
+                    QKeyEvent press(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier), release(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier);
+                    QCoreApplication::sendEvent(button, &press); QCoreApplication::sendEvent(button, &release); QCoreApplication::processEvents();
+                    std::cout << "STORAGE_DIALOG " << name << " visible=" << (dialog && dialog->property("visible").toBool())
+                        << " cancel=" << bool(cancel) << " cancelFocus=" << (cancel && cancel->hasActiveFocus())
+                        << " size=" << (dialog ? dialog->property("width").toDouble() : 0) << 'x' << (dialog ? dialog->property("height").toDouble() : 0) << '\n';
+                    okay = dialog && dialog->property("visible").toBool() && cancel && cancel->hasActiveFocus() &&
+                        dialog->property("width").toDouble() <= window->width() - 16 && dialog->property("height").toDouble() <= window->height() - 16 && okay;
+                    // Exercise cancellation only. This audit never hands off,
+                    // deletes files, requests elevation or launches installers.
+                    auto* cancelAccess = cancel ? QAccessible::queryAccessibleInterface(cancel) : nullptr;
+                    auto* scope = window->findChild<QQuickItem*>(QStringLiteral("cleanupScopeText"));
+                    auto* scopeAccess = scope ? QAccessible::queryAccessibleInterface(scope) : nullptr;
+                    std::cout << "STORAGE_REVIEW_ACCESS cancelRole=" << (cancelAccess ? int(cancelAccess->role()) : -1)
+                        << " cancelName=" << (cancelAccess ? cancelAccess->text(QAccessible::Name).toStdString() : "<none>")
+                        << " scopeRole=" << (scopeAccess ? int(scopeAccess->role()) : -1)
+                        << " readOnly=" << (scope && scope->property("readOnly").toBool())
+                        << " selectable=" << (scope && scope->property("selectByKeyboard").toBool()) << '\n';
+                    okay = cancelAccess && cancelAccess->role() == QAccessible::Button && cancelAccess->text(QAccessible::Name) == QStringLiteral("Cancel") &&
+                        scope && scope->property("readOnly").toBool() && scope->property("selectByKeyboard").toBool() && scopeAccess &&
+                        scopeAccess->role() == QAccessible::EditableText && !scopeAccess->text(QAccessible::Name).isEmpty() && okay;
+                    if (cancel && cancel->hasActiveFocus()) {
+                        QKeyEvent cancelPress(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier), cancelRelease(QEvent::KeyRelease, Qt::Key_Space, Qt::NoModifier);
+                        QCoreApplication::sendEvent(cancel, &cancelPress); QCoreApplication::sendEvent(cancel, &cancelRelease);
+                    }
+                    QCoreApplication::processEvents();
+                    std::cout << "STORAGE_KEYBOARD_CANCEL closed=" << (dialog && !dialog->property("visible").toBool()) << '\n';
+                    okay = dialog && !dialog->property("visible").toBool() && okay;
+                }
+            }
+            auto* legacyAccess = preserved ? QAccessible::queryAccessibleInterface(preserved) : nullptr;
+            std::cout << "STORAGE_LEGACY accessible=" << bool(legacyAccess) << " labelled=" <<
+                (legacyAccess && legacyAccess->text(QAccessible::Name).contains(QStringLiteral("Preserved legacy files"))) << '\n';
+            okay = legacyAccess && legacyAccess->role() == QAccessible::EditableText &&
+                preserved->property("readOnly").toBool() && preserved->property("selectByKeyboard").toBool() &&
+                legacyAccess->text(QAccessible::Name).contains(QStringLiteral("Preserved legacy files")) && okay;
+            std::cout << "STORAGE_CLEANUP_AUDIT=" << (okay ? "PASS" : "FAIL") << " final consent was never accepted\n";
+            QCoreApplication::exit(okay ? 0 : 16);
+        });
+        timer->start();
     }
     if (arguments.contains(QStringLiteral("--accessibility-audit"))) {
         QTimer::singleShot(350, &app, [&] {
@@ -218,15 +292,15 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
         const auto first = std::make_shared<QImage>();
         const auto next = std::make_shared<std::function<void()>>();
         *next = [&app, window, sizes, step, first, next] {
-            if (*step == int(sizes->size()) * 5) {
+            if (*step == int(sizes->size()) * 6) {
                 std::cout << "RESIZE_AUDIT=PASS captures=" << *step << "\n";
                 QCoreApplication::exit(0);
                 return;
             }
-            const int sizeIndex = *step / 5, pageIndex = *step % 5;
+            const int sizeIndex = *step / 6, pageIndex = *step % 6;
             window->resize((*sizes)[size_t(sizeIndex)]);
             window->setProperty("pageIndex", pageIndex);
-            QTimer::singleShot(100, &app, [&app, window, sizes, step, first, next] {
+            QTimer::singleShot(100, &app, [window, sizes, step, first, next] {
                 const QImage image = window->grabWindow();
                 auto* sidebar = window->findChild<QQuickItem*>(QStringLiteral("sidebar"));
                 auto* license = window->findChild<QQuickItem*>(QStringLiteral("licenseButton"));
@@ -239,7 +313,7 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
                     QCoreApplication::exit(12); return;
                 }
                 if (*step == 0) *first = image;
-                if (*step == int(sizes->size()) * 5 - 5 && *first != image) {
+                if (*step == int(sizes->size()) * 6 - 6 && *first != image) {
                     size_t changed = 0;
                     if (first->size() == image.size())
                         for (int y = 0; y < image.height(); ++y)
@@ -271,7 +345,7 @@ int runDesktopDiagnostics(QGuiApplication& app, QQuickWindow* window, Statistics
         auto lastTick = std::make_shared<qint64>(launchClock.elapsed());
         QObject::connect(window, &QQuickWindow::frameSwapped, &app, [frames] { ++*frames; });
         QObject::connect(navigation, &QTimer::timeout, &app, [=, &launchClock] {
-            window->setProperty("pageIndex", *ticks % 5);
+            window->setProperty("pageIndex", *ticks % 6);
             ++*ticks;
             const auto now = launchClock.elapsed();
             *maxGap = std::max(*maxGap, now - *lastTick);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "release_info.hpp"
+#include "installer_lease.hpp"
 
 #include <QNetworkAccessManager>
 #include <QObject>
@@ -57,6 +58,8 @@ public:
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void openInstaller();
     Q_INVOKABLE void openReleasePage();
+    void setInstallerLauncher(std::function<void(const std::filesystem::path&, marksix::maintenance::InstallerCompletion)> launcher) { installerLauncher_ = std::move(launcher); }
+    void preserveDownloadForMaintenance();
 signals:
     void changed();
     void progressChanged();
@@ -74,6 +77,7 @@ private:
     QString currentVersion_;
     QString cacheRoot_;
     Opener opener_;
+    std::function<void(const std::filesystem::path&, marksix::maintenance::InstallerCompletion)> installerLauncher_;
     QNetworkAccessManager* network_;
     UpdateLimits limits_;
     QPointer<QNetworkReply> reply_;

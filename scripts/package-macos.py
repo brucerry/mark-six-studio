@@ -98,11 +98,18 @@ def main():
                 run("codesign", "--force", "--options", "runtime", "--timestamp", "--sign", identities[0], binary)
             else:
                 run("codesign", "--force", "--sign", "-", binary)
+    # Seal the helper before hashing it. The final root seal must not re-sign
+    # nested code after this digest and the cleanup manifest have been written.
+    helper = app / "Contents/Helpers/mark-six-maintenance"
+    helper_signing = ["--options", "runtime", "--timestamp", "--sign", identities[0]] if args.signed else ["--sign", "-"]
+    run("codesign", "--force", "--identifier", "com.brucerry.marksixstudio.maintenance", *helper_signing, helper)
+    (resources / "maintenance-helper.sha256").write_text(hashlib.sha256(helper.read_bytes()).hexdigest() + "\n")
+    run(sys.executable, ROOT / "scripts/write-maintenance-payload.py", app, "--macos")
     # Re-sign the root after deployment to include all resources and nested code.
     if args.signed:
         run("codesign", "--force", "--options", "runtime", "--timestamp", "--entitlements", resources / "marksix.entitlements", "--sign", identities[0], app)
     else:
-        run("codesign", "--force", "--deep", "--sign", "-", app)
+        run("codesign", "--force", "--sign", "-", app)
     suffix = "" if args.signed else "-unsigned"
     stem = "MarkSixStudio-{}-macos-universal{}".format(version, suffix)
     verify = [sys.executable, str(ROOT / "scripts/verify-macos-package.py"), str(app)]
@@ -139,11 +146,12 @@ def main():
                            "BundleOverwriteAction": "upgrade"}], handle)
         component = staging / "application.pkg"
         run("pkgbuild", "--root", payload, "--component-plist", policy,
+            "--scripts", ROOT / "installer/macos",
             "--identifier", "com.brucerry.marksixstudio", "--version", version,
             "--install-location", "/Applications", component)
         distribution = ET.Element("installer-gui-script", {"minSpecVersion": "2"})
         ET.SubElement(distribution, "title").text = "Mark Six Studio"
-        ET.SubElement(distribution, "options", {"customize": "never", "require-scripts": "false", "hostArchitectures": "arm64,x86_64"})
+        ET.SubElement(distribution, "options", {"customize": "never", "require-scripts": "true", "hostArchitectures": "arm64,x86_64"})
         ET.SubElement(distribution, "domains", {"enable_anywhere": "false", "enable_currentUserHome": "false", "enable_localSystem": "true"})
         allowed = ET.SubElement(ET.SubElement(distribution, "volume-check"), "allowed-os-versions")
         ET.SubElement(allowed, "os-version", {"min": "13.0"})

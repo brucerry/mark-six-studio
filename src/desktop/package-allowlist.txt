@@ -1,5 +1,8 @@
 D3Dcompiler_47.dll
 mark-six-studio.exe
+mark-six-maintenance.exe
+maintenance-helper.sha256
+maintenance-payload.txt
 Qt6Core.dll
 Qt6Gui.dll
 Qt6LabsFolderListModel.dll

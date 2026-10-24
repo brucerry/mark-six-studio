@@ -12,14 +12,8 @@ The controller checks the downloaded length, checksum filename, SHA-256 and GitH
 
 ## Installation behavior
 
-The user selects **Install and close app** separately. The OS opens the downloaded installer with its usual approval/elevation flow, and the app exits after successful handoff. Users finish the wizard and reopen manually. Failed handoff keeps the app open for retry. There is no privileged helper, silent installation, automatic restart or signing bypass.
+The user selects **Install and close app** separately. The OS opens the downloaded installer with its usual approval/elevation flow, and the app exits after successful handoff. Users finish the wizard and reopen manually. Failed handoff keeps the app open for retry. Updates use the normal native wizard, with no silent installation, automatic restart or signing bypass.
 
-Version 0.1.0 predates the updater. Users must install the first updater-enabled release manually before they can check for later versions inside the app.
-
-## Verification
-
-CTest's `application_updates` suite uses controlled network replies and a stub opener. It covers release selection, bad metadata, TLS failures, limits, redirects, cancellation/late signals, size/checksum failures, altered cached files and failed handoff without executing fixture installers. Native package CI also runs this suite.
-
-For an explicit live download-only probe, run the built `MarkSixAppUpdateTests --live-download` binary. It downloads and verifies this repository's published installer in temporary storage and never opens it. Ordinary tests and startup perform no external update requests.
+If an older app has no update controls, install the latest release manually.
 
 See the [installer guide](../installer/README.md) for publishing and the [user guide](usage.md) for the update steps.

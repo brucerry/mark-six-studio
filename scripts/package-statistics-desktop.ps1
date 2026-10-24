@@ -25,7 +25,11 @@ foreach ($name in $licenseHashes.Keys) {
 }
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 Copy-Item -LiteralPath $application -Destination $destination
+Copy-Item -LiteralPath (Join-Path $repo 'build/statistics-desktop/mark-six-maintenance.exe') -Destination $destination
 if ($Signed) { & (Join-Path $PSScriptRoot 'sign-windows-file.ps1') -Path (Join-Path $destination 'mark-six-studio.exe') }
+if ($Signed) { & (Join-Path $PSScriptRoot 'sign-windows-file.ps1') -Path (Join-Path $destination 'mark-six-maintenance.exe') }
+$helperHash = (Get-FileHash -LiteralPath (Join-Path $destination 'mark-six-maintenance.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+[IO.File]::WriteAllText((Join-Path $destination 'maintenance-helper.sha256'), $helperHash + "`n", [Text.UTF8Encoding]::new($false))
 $previousPath = $env:PATH
 try {
     $env:PATH = "$(Join-Path $qt 'bin');$env:PATH"
@@ -46,6 +50,7 @@ foreach ($name in $licenseHashes.Keys) {
 foreach ($name in 'qtbase-6.10.2.cdx.json','qtdeclarative-6.10.2.cdx.json') {
     Copy-Item -LiteralPath (Join-Path $qt "sbom/$name") -Destination (Join-Path $destination "sbom/$name")
 }
+& (Join-Path $PSScriptRoot 'write-maintenance-payload.ps1') -PackageDirectory $destination
 $expected = @(Get-Content -LiteralPath (Join-Path $repo 'src/desktop/package-allowlist.txt') |
     Where-Object { $_.Length -gt 0 })
 $actual = @(Get-ChildItem -LiteralPath $destination -Recurse -File |

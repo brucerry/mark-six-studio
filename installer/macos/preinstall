@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+# A protected gate is published before the standalone uninstall reviews files.
+# Existing installer activity is checked independently by the native broker.
+if [ -e /Library/Preferences/com.brucerry.marksixstudio.maintenance ] || [ -L /Library/Preferences/com.brucerry.marksixstudio.maintenance ]; then
+    echo 'Mark Six Studio cleanup is active. Finish or retry its maintenance helper before installing.' >&2
+    exit 1
+fi
+exit 0

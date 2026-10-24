@@ -4,12 +4,21 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+from urllib.parse import unquote
 import plistlib
 import posixpath
 import re
 import subprocess
 
 MAGIC = {b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf"}
+
+def verify_helper_dependencies(linked):
+    # otool emits one unindented heading for EACH architecture in a universal
+    # binary. Only tab-prefixed load-command rows describe dependencies.
+    dependencies = [line.strip().split(" (", 1)[0] for line in linked.splitlines() if line.startswith("\t")]
+    if not dependencies or any(not posixpath.normpath(item).startswith(("/System/Library/", "/usr/lib/")) for item in dependencies):
+        raise ValueError("Native helper depends on a removable/non-system runtime")
+
 
 def verify(app):
     app = app.resolve(strict=True)
@@ -20,6 +29,8 @@ def verify(app):
     if info.get("CFBundleIdentifier") != "com.brucerry.marksixstudio" or info.get("LSMinimumSystemVersion") != "13.0":
         raise ValueError("Unexpected bundle identity or deployment target")
     required = ["Contents/MacOS/mark-six-studio", "Contents/Resources/MarkSixStudio.icns",
+                "Contents/Helpers/mark-six-maintenance", "Contents/Resources/maintenance-helper.sha256",
+                "Contents/Resources/maintenance-payload.txt",
                 "Contents/Frameworks/QtCore.framework/Versions/A/QtCore",
                 "Contents/PlugIns/platforms/libqcocoa.dylib", "Contents/PlugIns/tls/libqsecuretransportbackend.dylib", "Contents/Resources/qml/QtQuick/Controls/qmldir",
                 "Contents/Resources/licenses/GPL-3.0.txt", "Contents/Resources/licenses/Qt-Notice.txt",
@@ -29,6 +40,36 @@ def verify(app):
     for relative in required:
         if not (app / relative).is_file():
             raise ValueError("Missing package resource: " + relative)
+    helper = app / "Contents/Helpers/mark-six-maintenance"
+    if (app / "Contents/Resources/maintenance-helper.sha256").read_text().strip() != hashlib.sha256(helper.read_bytes()).hexdigest():
+        raise ValueError("Native helper integrity mismatch")
+    subprocess.run(["codesign", "--verify", "--strict", "--all-architectures", "-R", '=identifier "com.brucerry.marksixstudio.maintenance"', str(helper)], check=True, capture_output=True)
+    native_manifest = app / "Contents/Resources/maintenance-payload.txt"
+    rows = native_manifest.read_text().splitlines()
+    if not rows or rows[0] != "M6PAYLOAD\t1\tcom.brucerry.marksixstudio":
+        raise ValueError("Invalid native cleanup manifest")
+    declared = {native_manifest.relative_to(app).as_posix()}
+    for row in rows[1:]:
+        kind, evidence, encoded = row.split("\t")
+        relative = unquote(encoded, errors="strict")
+        if relative.startswith("/") or any(part in {".", ".."} for part in relative.split("/")) or relative in declared:
+            raise ValueError("Unsafe/duplicate native payload path")
+        declared.add(relative)
+        path = app / relative
+        if kind == "F":
+            if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != evidence:
+                raise ValueError("Native payload content mismatch: " + relative)
+        elif kind == "L":
+            if not path.is_symlink() or path.readlink().as_posix() != unquote(evidence, errors="strict"):
+                raise ValueError("Native payload link mismatch: " + relative)
+        elif kind == "D":
+            if evidence != "-" or path.is_symlink() or not path.is_dir():
+                raise ValueError("Native payload directory mismatch: " + relative)
+        else:
+            raise ValueError("Invalid native payload member type")
+    managed = {"Contents/MacOS/mark-six-studio", "Contents/_CodeSignature", "Contents/_CodeSignature/CodeResources"}
+    if any(path.relative_to(app).as_posix() not in declared | managed for path in app.rglob("*")):
+        raise ValueError("Native cleanup manifest omits payload members")
     inventory = {}
     binaries = 0
     for path in sorted(app.rglob("*")):
@@ -61,6 +102,8 @@ def verify(app):
                 else:
                     raise ValueError("External runtime search path: " + rpath)
             linked = subprocess.check_output(["otool", "-L", str(path)], text=True)
+            if path == helper:
+                verify_helper_dependencies(linked)
             for line in linked.splitlines():
                 if not line.startswith("\t"):
                     continue
@@ -77,6 +120,7 @@ def verify(app):
                 else:
                     raise ValueError("External package dependency: " + dependency)
         inventory[relative] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+    subprocess.run([str(helper), "--verify-application-code", str(app)], check=True, capture_output=True)
     if not binaries:
         raise ValueError("No Mach-O binaries found")
     return {"format": "marksix-macos-package-v1", "version": info["CFBundleShortVersionString"],

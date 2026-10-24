@@ -5,6 +5,10 @@
 #include "adaptive.hpp"
 #include "coverage.hpp"
 #include "forecast_lab.hpp"
+#include "forecast_lab_ledger.hpp"
+#include "adaptive_ledger.hpp"
+#include "user_cleanup.hpp"
+#include "workspace_session.hpp"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -85,6 +89,14 @@ private:
         result.source.contentSha256 = sha256("fixture response");
         return result;
     }
+};
+class NoNetworkProvider final : public UpdateProvider {
+public:
+    std::atomic<int> requests{0};
+    bool enabled() const override { return true; }
+    UpdatePolicy policy() const override { return {"no-network", "fixture-v1", {"2003-01-01", "2003-01-03"}, 1, 1}; }
+    std::optional<Result> latest(std::stop_token) override { ++requests; throw std::runtime_error("Unexpected automatic network request"); }
+    FetchedWindow fetch(const DateRange&, std::stop_token) override { ++requests; throw std::runtime_error("Unexpected automatic backfill"); }
 };
 class BlockingProvider final : public UpdateProvider {
 public:
@@ -455,6 +467,63 @@ int main(int argc, char** argv) {
         check(models.sources()->detailForId(qulonglong(selected)).contains(QStringLiteral("synthetic correction")));
         sources.cancelSourceWork();
         sources.close();
+
+        stage = "native reset then fresh workspace";
+        namespace maintenance = marksix::maintenance;
+        QTemporaryDir resetDirectory;
+        check(resetDirectory.isValid());
+        const auto resetBase = std::filesystem::canonical(std::filesystem::path(resetDirectory.path().toStdU16String()));
+        maintenance::UserStorage user{maintenance::currentAccount(), resetBase / "home", resetBase / "home/data", resetBase / "home/cache",
+            resetBase / "home/Downloads", resetBase / "home/maintenance/ownership.bin", {}, {}, true};
+        {
+            Archive archive(user.dataRoot);
+            archive.ingest({seedFixture(), fixture(1), fixture(2), fixture(3)});
+            AdaptiveLedger adaptive(user.dataRoot);
+            adaptive.reconcile(archive.snapshot(), archive.version(), "2026-10-24T00:00:00Z");
+            LabLedger lab(user.dataRoot);
+            lab.reconcile(archive.snapshot(), archive.version(), "2026-10-24T00:00:00Z");
+            check(!adaptive.lineages().empty() && !lab.lineages().empty() && !archive.revisions().empty());
+        } // Every real SQLite connection is closed before native maintenance.
+        const auto backup = user.dataRoot / "statistics/results.sqlite3.before-v3-0123456789abcdef01234567.sqlite3";
+        std::filesystem::copy_file(user.dataRoot / "statistics/results.sqlite3", backup);
+        const auto legacy = user.dataRoot / "old-recording.MSX";
+        { std::ofstream out(legacy); out << "opaque preserved recording"; }
+        const auto legacyHash = maintenance::sha256File(legacy);
+        const auto otherRoot = resetBase / "other-root";
+        { Archive archive(otherRoot); archive.ingest({fixture(1)}); }
+        const auto otherHash = maintenance::sha256File(otherRoot / "statistics/results.sqlite3");
+        maintenance::UserCleanupEnvironment native;
+        native.users = [&](bool all, auto&) { check(!all); return std::vector<maintenance::UserStorage>{user}; };
+        native.writersIdle = [](const auto&) { return true; };
+        native.review = [&](const auto&, const auto& report, const auto&, const auto&) {
+            check(report.find(maintenance::quotedReportField(maintenance::pathUtf8(legacy))) != std::string::npos);
+            return true;
+        };
+        std::uint64_t progress = 0;
+        native.progress = [&](const auto&, auto completed, auto total) { check(completed <= total); progress = completed; };
+        std::string observed;
+        const auto outcome = maintenance::executeUserCleanup({maintenance::Operation::ResetRecords, user.dataRoot, false}, user.account, observed, native);
+        check(outcome.find("completed with legacy files preserved") != std::string::npos && progress >= 4);
+        for (const auto* name : {"results.sqlite3", "adaptive.sqlite3", "forecast_lab.sqlite3"})
+            check(!std::filesystem::exists(user.dataRoot / "statistics" / name));
+        check(!std::filesystem::exists(backup) && !maintenance::resetPending(user.dataRoot));
+        check(maintenance::sha256File(legacy) == legacyHash && maintenance::sha256File(otherRoot / "statistics/results.sqlite3") == otherHash);
+        {
+            maintenance::WorkspaceSession session(user.dataRoot);
+            StatisticsModels freshModels;
+            auto provider = std::make_shared<NoNetworkProvider>();
+            StatisticsLoader fresh(user.dataRoot, provider, {}, freshModels);
+            fresh.reload(); until([&] { return !fresh.busy(); });
+            check(fresh.error().isEmpty() && !fresh.selectionAvailable() && fresh.sourceStatus().contains(QStringLiteral("0 archived")));
+            check(provider->requests == 0 && freshModels.archive()->rowCount() == 0 && freshModels.learning()->rowCount() == 0);
+            fresh.close(); fresh.reload();
+            check(!fresh.busy() && provider->requests == 0); // Closed loaders cannot restart workers.
+        }
+        {
+            Archive archive(user.dataRoot); AdaptiveLedger adaptive(user.dataRoot); LabLedger lab(user.dataRoot);
+            check(archive.snapshot().records().empty() && archive.revisions().empty() && archive.updateAttempts().empty() && archive.resolutions().empty());
+            check(adaptive.lineages().empty() && lab.lineages().empty());
+        }
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s\n", error.what());
         return 1;

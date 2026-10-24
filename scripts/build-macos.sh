@@ -17,3 +17,5 @@ QT_QPA_PLATFORM=offscreen "$build/mark-six-studio.app/Contents/MacOS/mark-six-st
   --smoke --data-dir "$build/smoke-data"
 QT_QPA_PLATFORM=offscreen "$build/mark-six-studio.app/Contents/MacOS/mark-six-studio" \
   --app-update-audit --data-dir "$build/update-audit-data"
+QT_QPA_PLATFORM=offscreen "$build/mark-six-studio.app/Contents/MacOS/mark-six-studio" \
+  --storage-cleanup-audit --data-dir "$build/cleanup-audit-data"

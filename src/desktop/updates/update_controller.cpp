@@ -1,4 +1,5 @@
 #include "update_controller.hpp"
+#include "durable_files.hpp"
 
 #include <QAuthenticator>
 #include <QCryptographicHash>
@@ -253,13 +254,39 @@ void UpdateController::openInstaller() {
         fail(QStringLiteral("The downloaded installer has changed. Download it again before installing."));
         return;
     }
-    if (!opener_ || !opener_(QUrl::fromLocalFile(verifiedPath_))) {
-        setState(QStringLiteral("ready"), QStringLiteral("The installer could not be opened. Try Install and close app again."));
+    using namespace marksix::maintenance;
+    const auto package = normalizePlatformPath(std::filesystem::path(verifiedPath_.toStdU16String()));
+    const auto leasePath = installerLeasePath(package.parent_path());
+    const InstallerLease handoff{{package, expectedDigest_.toHex().toStdString()}, {}, release_->version.toStdString(), nativeInstallationState().stamp};
+    try { writeInstallerLease(leasePath, handoff); }
+    catch (const std::exception&) {
+        setState(QStringLiteral("ready"), QStringLiteral("The installer handoff lease could not be saved. The installer was not opened."));
         return;
     }
     directory_->setAutoRemove(false);
-    setState(QStringLiteral("opening"), QStringLiteral("Finish the installation wizard, then reopen Mark Six Studio."));
-    emit installerStarted();
+    setState(QStringLiteral("opening"), QStringLiteral("Opening the native installation wizard…"));
+    const QPointer<UpdateController> owner(this);
+    const auto complete = [owner, handoff, leasePath](InstallerLaunch result) {
+        if (!owner) return;
+        QMetaObject::invokeMethod(owner, [owner, handoff, leasePath, result = std::move(result)] {
+            if (!owner) return;
+            if (!result.started) {
+                try { durableRemove(leasePath); } catch (const std::exception&) {}
+                owner->directory_->setAutoRemove(true);
+                owner->setState(QStringLiteral("ready"), QStringLiteral("The installer was not opened. You can try again.")); return;
+            }
+            try { auto launched = handoff; launched.process = result.process; writeInstallerLease(leasePath, launched); }
+            catch (const std::exception&) { /* The pre-handoff unknown lease still protects the package. */ }
+            owner->setState(QStringLiteral("opening"), QStringLiteral("Finish the installation wizard, then reopen Mark Six Studio."));
+            emit owner->installerStarted();
+        }, Qt::AutoConnection);
+    };
+    if (installerLauncher_) installerLauncher_(package, complete);
+    else complete({opener_ && opener_(QUrl::fromLocalFile(verifiedPath_)), {}, {}});
+}
+
+void UpdateController::preserveDownloadForMaintenance() {
+    if (directory_) directory_->setAutoRemove(false);
 }
 
 void UpdateController::openReleasePage() {

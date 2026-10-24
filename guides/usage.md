@@ -14,7 +14,7 @@ Forecasts are experimental and do not establish future predictive advantage. Thi
 
 ## Updates
 
-Starting with v0.1.1, select **Check for updates** in the sidebar:
+Select **Check for updates** in the sidebar:
 
 1. Read the available version and release notes, then select **Download update**.
 2. Wait for the download and checksum verification. You can cancel and try again later.
@@ -22,7 +22,7 @@ Starting with v0.1.1, select **Check for updates** in the sidebar:
 
 The app checks only when you ask. Installers remain unsigned and normal OS approval may be required. Local history is retained. A failed or cancelled download never starts an installer.
 
-**Still using v0.1.0?** Install the first release containing in-app updates manually from the [latest release](https://github.com/brucerry/mark-six-studio/releases/latest). You can also use this manual route any time.
+You can also download and install manually from the [latest release](https://github.com/brucerry/mark-six-studio/releases/latest).
 
 ## Your data
 
@@ -33,8 +33,10 @@ Databases are kept in the `statistics` subdirectory of:
 
 Use `--data-dir PATH` to select an isolated directory. Installers do not bundle or replace user databases. Keep backups of important local records.
 
-## Remove the app
+## Storage and removal
 
-Use Windows **Installed apps**, or move **Mark Six Studio.app** from macOS Applications to Trash. The macOS PKG does not install a separate uninstaller. Local data remains available to a compatible reinstall.
+Open **Storage and cleanup** to clear caches, reset saved records and learning history, or uninstall completely. Review the exact scope before confirming permanent removal. See the [cleanup guide](storage-maintenance.md) for paths, preserved files and recovery.
+
+Ordinary Windows uninstall or removal of the macOS app bundle keeps local data for a compatible reinstall.
 
 For OS approval prompts and checksum verification, see the [installation guide](../installer/README.md).

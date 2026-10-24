@@ -20,7 +20,7 @@ ApplicationWindow {
     readonly property bool compact: width < 1000
     readonly property bool taskBlocking: statisticsLoader.busy || statisticsLoader.updateBusy ||
         statisticsLoader.sourceWorkBusy || statisticsLoader.controlBusy
-    readonly property var destinations: ["Dashboard", "Model comparison", "Learning history", "Draw history", "Data sources"]
+    readonly property var destinations: ["Dashboard", "Model comparison", "Learning history", "Draw history", "Data sources", "Storage and cleanup"]
     function openWebsite(address) {
         if (!address.toString().startsWith("https://")) return
         pendingWebsite = address.toString()
@@ -30,6 +30,7 @@ ApplicationWindow {
 
     Rectangle {
         id: sidebar
+        enabled: !appMaintenance.busy
         objectName: "sidebar"
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -97,6 +98,7 @@ ApplicationWindow {
 
     Flickable {
         id: content
+        enabled: !appMaintenance.busy
         objectName: "content"
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -146,7 +148,27 @@ ApplicationWindow {
                 width: parent.width
                 appWindow: root
             }
+            StoragePage {
+                width: parent.width
+                appWindow: root
+            }
         }
+    }
+    Dialog {
+        id: maintenanceProgress
+        objectName: "maintenanceHandoffProgress"
+        title: "Preparing native cleanup review"
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+        visible: appMaintenance.busy
+        anchors.centerIn: Overlay.overlay
+        width: Math.min(root.width - 32, 620)
+        contentItem: SelectableText {
+            width: parent.width
+            text: appMaintenance.status + "\n\nNo deletion starts until you approve the native file review after this app closes."
+        }
+        onVisibleChanged: if (visible) appUpdateDialog.close()
     }
     Rectangle {
         id: busyCover

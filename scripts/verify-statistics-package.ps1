@@ -39,14 +39,14 @@ if ($actual.Count -ne $expected.Count) { throw "Package count mismatch: actual $
 foreach ($relative in $expected) {
     if (-not $actual.Contains($relative)) { throw "Missing package file: $relative" }
 }
-foreach ($required in @('mark-six-studio.exe','Qt6Core.dll','platforms/qwindows.dll',
+foreach ($required in @('mark-six-studio.exe','mark-six-maintenance.exe','maintenance-helper.sha256','maintenance-payload.txt','Qt6Core.dll','platforms/qwindows.dll',
     'tls/qschannelbackend.dll','qml/QtQuick/Controls/qmldir','qml/QtQuick/Dialogs/qmldir',
     'licenses/Qt-Notice.txt','licenses/LGPL-3.0-only.txt','licenses/GPL-3.0-only.txt',
     'licenses/SQLite.txt','sbom/qtbase-6.10.2.cdx.json','sbom/qtdeclarative-6.10.2.cdx.json')) {
     if (-not $actual.Contains($required)) { throw "Required runtime/resource/notice missing: $required" }
 }
 if (@($actual | Where-Object { $_ -match '(^|/)(PhysX|bgfx|node|electron|qmltooling)' -or
-        $_ -match '\.(sqlite3|db|msx|mp4|ts)$' -or ($_ -match '\.exe$' -and $_ -cne 'mark-six-studio.exe') }).Count) {
+        $_ -match '\.(sqlite3|db|msx|mp4|ts)$' -or ($_ -match '\.exe$' -and $_ -cnotin @('mark-six-studio.exe','mark-six-maintenance.exe')) }).Count) {
     throw 'Obsolete runtime, source, or user data found in package.'
 }
 $manifestPath = Join-Path $root 'manifest.json'
@@ -63,4 +63,8 @@ foreach ($file in $manifest.files) {
     $hash = (Get-FileHash -LiteralPath (Join-Path $root $relative) -Algorithm SHA256).Hash
     if ($hash -cne [string]$file.sha256) { throw "Package hash mismatch: $relative" }
 }
+$helperHash = (Get-FileHash -LiteralPath (Join-Path $root 'mark-six-maintenance.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+if ([IO.File]::ReadAllText((Join-Path $root 'maintenance-helper.sha256')).Trim() -cne $helperHash) { throw 'Native helper integrity mismatch.' }
+$payload = [IO.File]::ReadAllLines((Join-Path $root 'maintenance-payload.txt'))
+if ($payload[0] -cne "M6PAYLOAD`t1`tcom.brucerry.marksixstudio") { throw 'Invalid native payload manifest.' }
 Write-Output "PASS exact Qt statistics package: $($actual.Count) inventoried files, all hashes, no stray data/runtime or reparse points."

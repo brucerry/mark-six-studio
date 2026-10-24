@@ -50,18 +50,27 @@ try {
         "-DCMAKE_PREFIX_PATH=$qt",'-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL')
     & $cmake @options
     if ($LASTEXITCODE) { throw 'Statistics desktop configure failed.' }
-    $targets = @('MarkSixStudio')
-    if ($Tests) { $targets += @('MarkSixStatisticsTests','MarkSixStatisticsQtModelTests','MarkSixAppUpdateTests') }
+    $targets = @('MarkSixStudio','MarkSixMaintenance')
+    if ($Tests) { $targets += @('MarkSixStatisticsTests','MarkSixStatisticsQtModelTests','MarkSixAppUpdateTests','MarkSixMaintenanceTests','MarkSixStorageUiTests','MarkSixMaintenanceLifecycleFixture','MarkSixUninstallFixture') }
     & $cmake --build $build --target @targets --parallel 4
     if ($LASTEXITCODE) { throw 'Statistics desktop build failed.' }
     if ($Tests) {
-        & $ctest --test-dir $build --output-on-failure -L 'statistics|updates'
+        & $ctest --test-dir $build --output-on-failure -L 'statistics|updates|maintenance'
         if ($LASTEXITCODE) { throw 'Statistics desktop backend tests failed.' }
         $env:QT_QPA_PLATFORM = 'offscreen'
         $auditData = Join-Path $build 'update-audit-data'
         $audit = Start-Process -FilePath (Join-Path $build 'mark-six-studio.exe') `
             -ArgumentList @('--app-update-audit','--data-dir',('"{0}"' -f $auditData)) -Wait -PassThru
         if ($audit.ExitCode) { throw 'Application update dialog audit failed.' }
+        $cleanupData = Join-Path $build 'cleanup-audit-data'
+        $cleanupOut = Join-Path $build 'cleanup-audit.stdout.txt'
+        $cleanupError = Join-Path $build 'cleanup-audit.stderr.txt'
+        $cleanup = Start-Process -FilePath (Join-Path $build 'mark-six-studio.exe') `
+            -ArgumentList @('--storage-cleanup-audit','--data-dir',('"{0}"' -f $cleanupData)) `
+            -RedirectStandardOutput $cleanupOut -RedirectStandardError $cleanupError -Wait -PassThru
+        Get-Content -LiteralPath $cleanupOut
+        Get-Content -LiteralPath $cleanupError
+        if ($cleanup.ExitCode) { throw ('Storage cleanup review and cancellation audit failed: ' + $cleanup.ExitCode) }
     }
 } finally {
     foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key,$saved[$key],'Process') }
