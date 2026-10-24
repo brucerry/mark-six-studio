@@ -6,7 +6,9 @@
 
 Explore historical Mark Six draws, compare experimental models, and follow learning history on Windows and macOS.
 
-## 🚀 Install and start
+---
+
+## 🚀 Quick start
 
 1. Download an installer from the **[latest release](https://github.com/brucerry/mark-six-studio/releases/latest)**:
    - **Windows 10 (1809+) / 11 x64:** choose the setup `.exe`.
@@ -14,15 +16,21 @@ Explore historical Mark Six draws, compare experimental models, and follow learn
 2. Run the installation wizard, then open **Mark Six Studio** from the Start menu or Applications.
 3. Click **Update history**, then explore **Draw history**, **Model comparison**, and **Learning history**. Cached analysis works offline.
 
-Installers are **unsigned**, so your OS may ask for approval. See the [installation guide](installer/README.md) for help and checksums. Forecasts are experimental and do not establish a future predictive advantage.
+⚠️  Installers are **unsigned**, so your OS may ask for approval. See the [installation guide](installer/README.md) for help and checksums. Forecasts are experimental and do not establish a future predictive advantage.
+
+### In-app updates
 
 Use **Check for updates** in the app to download a newer installer. See [storage and cleanup](guides/storage-maintenance.md) for saved files, caches and removal options.
 
-## 🛠️ Build locally
+---
+
+## 🛠️ Build
 
 Clone this repository first. The app uses C++20, Qt and SQLite; scripts fetch the pinned dependencies.
 
-**Windows** — install Visual Studio C++ Build Tools and the Windows SDK, then run in PowerShell:
+### Windows
+
+Install Visual Studio C++ Build Tools and the Windows SDK, then run in PowerShell:
 
 ```powershell
 ./scripts/fetch-msvc.ps1
@@ -33,12 +41,18 @@ Clone this repository first. The app uses C++20, Qt and SQLite; scripts fetch th
 
 Run `build/statistics-desktop/mark-six-studio.exe`.
 
-**macOS** — install Xcode 26+ Command Line Tools, Python 3 and CMake 3.25+, then run:
+### macOS
+
+Install Xcode 26+ Command Line Tools, Python 3 and CMake 3.25+, then run:
 
 ```sh
 bash scripts/build-macos.sh
 ```
 
 Open `build/macos/mark-six-studio.app`.
+
+---
+
+## 📚 Docs
 
 See [build and packaging details](guides/building.md), the [user guide](guides/usage.md), and [installer/release maintenance](installer/README.md).

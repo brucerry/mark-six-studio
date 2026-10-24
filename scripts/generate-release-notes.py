@@ -8,7 +8,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = "https://github.com/brucerry/mark-six-studio"
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
-HEADINGS = ["## 📦 Version description", "## ✨ Changes", "## 🧾 Commits"]
+HEADINGS = ["## 📦 Description", "## ✨ Changes", "## 🧾 Commits"]
 MARKER = "<!-- RELEASE_COMMITS -->"
 
 
@@ -25,7 +25,7 @@ def render(tag, root=ROOT):
         raise ValueError("Create version-specific notes at " + str(path))
     text = path.read_text(encoding="utf-8")
     if [line for line in text.splitlines() if line.startswith("## ")] != HEADINGS:
-        raise ValueError("Release notes must have version description, changes and commits sections")
+        raise ValueError("Release notes must have description, changes and commits sections")
     if MARKER not in text:
         return text  # Retained historical notes already have an explicit commit list.
     if text.count(MARKER) != 1:

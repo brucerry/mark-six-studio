@@ -17,7 +17,7 @@ Output directories are never overwritten. Windows accepts `-OutputDirectory PATH
 ## Publish a GitHub release
 
 1. Merge the installer changes into the default branch so the **Release unsigned installers** workflow is available in Actions.
-2. Add `installer/releases/vMAJOR.MINOR.PATCH.md` with **📦 Version description**, **✨ Changes** and **🧾 Commits** sections. Put `<!-- RELEASE_COMMITS -->` in the commits section to generate a short linked list automatically.
+2. Add `installer/releases/vMAJOR.MINOR.PATCH.md` with **📦 Description**, **✨ Changes** and **🧾 Commits** sections. Put `<!-- RELEASE_COMMITS -->` in the commits section to generate a short linked list automatically.
 3. Create and push a `vMAJOR.MINOR.PATCH` tag matching `src/desktop/CMakeLists.txt`.
 4. Run **Release unsigned installers** from Actions and enter that tag.
 
